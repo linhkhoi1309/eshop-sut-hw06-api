@@ -1,0 +1,165 @@
+{
+  "info": {
+    "_postman_id": "hw06-api3-orderstatusmatrix-23127396",
+    "name": "API3-OrderStatusMatrix",
+    "description": "Data-driven Collection Runner sweep of the full 5x5 FR-10 state-transition matrix, driven by postman/data/order-status-cases.csv via `newman -d`. Each of the 25 iterations creates its own fresh order (so no iteration can corrupt another's starting state), walks it via legal hops to the CSV row's fromState, then attempts the row's toState and asserts the spec-correct expectedStatus. The two EXPECTED-FAIL rows (A3-D-15: shipping->canceled, A3-D-24: canceled->delivered) are expected to fail, evidencing the same two defects the hand-written API3-AdminOrderStatus collection already found (the missing shipping-cancel whitelist arm, and BUG-05).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const studentId = pm.environment.get('studentId') || pm.collectionVariables.get('studentId');",
+          "if (!studentId) { throw new Error('studentId is not set - select the EShop Local (HW06) environment'); }",
+          "pm.request.headers.upsert({ key: 'X-Student-Id', value: studentId });",
+          "console.log('[X-Student-Id] ' + studentId + ' -> ' + pm.request.method + ' ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('X-Student-Id header sent', function () {",
+          "    pm.expect(pm.request.headers.get('X-Student-Id')).to.eql(pm.environment.get('studentId'));",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Setup",
+      "item": [
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/login", "host": ["{{baseUrl}}"], "path": ["api", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{adminPassword}}\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('adminToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/login", "host": ["{{baseUrl}}"], "path": ["api", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{userEmail}}\",\"password\":\"{{userPassword}}\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('userToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5x5 Transition Matrix Sweep",
+      "item": [
+        {
+          "name": "{{caseId}}: {{fromState}} -> {{toState}} (expect {{expectedStatus}})",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}", "type": "text" }],
+            "url": { "raw": "{{baseUrl}}/api/checkout", "host": ["{{baseUrl}}"], "path": ["api", "checkout"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"total_amount\":100000,\"shipping_address\":\"Data-driven matrix fixture\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const caseId = pm.iterationData.get('caseId');",
+                  "const fromState = pm.iterationData.get('fromState');",
+                  "const toState = pm.iterationData.get('toState');",
+                  "const expectedStatus = Number(pm.iterationData.get('expectedStatus'));",
+                  "const note = pm.iterationData.get('note');",
+                  "",
+                  "pm.test(caseId + ' fresh order created', function () { pm.response.to.have.status(200); });",
+                  "const orderId = pm.response.json().orderId;",
+                  "",
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const adminToken = pm.environment.get('adminToken');",
+                  "const studentId = pm.environment.get('studentId');",
+                  "",
+                  "function adminPut(status, callback) {",
+                  "    pm.sendRequest({",
+                  "        url: baseUrl + '/api/admin/orders/' + orderId + '/status',",
+                  "        method: 'PUT',",
+                  "        header: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + adminToken, 'X-Student-Id': studentId },",
+                  "        body: { mode: 'raw', raw: JSON.stringify({ status: status }) }",
+                  "    }, callback);",
+                  "}",
+                  "",
+                  "const HOPS = {",
+                  "    pending: [],",
+                  "    confirmed: ['confirmed'],",
+                  "    shipping: ['confirmed', 'shipping'],",
+                  "    delivered: ['confirmed', 'shipping', 'delivered'],",
+                  "    canceled: ['canceled']",
+                  "};",
+                  "",
+                  "function walk(hops, i, done) {",
+                  "    if (i >= hops.length) return done();",
+                  "    adminPut(hops[i], function (err, res) {",
+                  "        walk(hops, i + 1, done);",
+                  "    });",
+                  "}",
+                  "",
+                  "walk(HOPS[fromState], 0, function () {",
+                  "    adminPut(toState, function (err, res) {",
+                  "        console.log(caseId + ': order ' + orderId + ' walked to ' + fromState + ', attempted -> ' + toState + ', got ' + res.code);",
+                  "        pm.test(caseId + ': ' + fromState + ' -> ' + toState + ' status ' + expectedStatus + ' (' + note + ')', function () {",
+                  "            pm.expect(res.code).to.eql(expectedStatus);",
+                  "        });",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

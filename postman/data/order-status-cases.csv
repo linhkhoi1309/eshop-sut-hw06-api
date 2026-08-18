@@ -1,0 +1,26 @@
+caseId,fromState,toState,expectedStatus,note
+A3-D-01,pending,pending,400,not whitelisted (same-state)
+A3-D-02,pending,confirmed,200,legal
+A3-D-03,pending,shipping,400,not whitelisted (skips confirmed)
+A3-D-04,pending,delivered,400,not whitelisted (skips two states)
+A3-D-05,pending,canceled,200,legal
+A3-D-06,confirmed,pending,400,not whitelisted (backward)
+A3-D-07,confirmed,confirmed,400,not whitelisted (same-state)
+A3-D-08,confirmed,shipping,200,legal
+A3-D-09,confirmed,delivered,400,not whitelisted (skips shipping)
+A3-D-10,confirmed,canceled,200,legal
+A3-D-11,shipping,pending,400,not whitelisted (backward)
+A3-D-12,shipping,confirmed,400,not whitelisted (backward)
+A3-D-13,shipping,shipping,400,not whitelisted (same-state)
+A3-D-14,shipping,delivered,200,legal
+A3-D-15,shipping,canceled,200,EXPECTED-FAIL candidate bug - whitelist omits this arm despite FR-10 admin exception
+A3-D-16,delivered,pending,400,final state
+A3-D-17,delivered,confirmed,400,final state
+A3-D-18,delivered,shipping,400,final state
+A3-D-19,delivered,delivered,400,final state (self)
+A3-D-20,delivered,canceled,400,final state
+A3-D-21,canceled,pending,400,final state
+A3-D-22,canceled,confirmed,400,final state
+A3-D-23,canceled,shipping,400,final state
+A3-D-24,canceled,delivered,400,EXPECTED-FAIL BUG-05 - final state improperly whitelisted
+A3-D-25,canceled,canceled,400,final state (self)

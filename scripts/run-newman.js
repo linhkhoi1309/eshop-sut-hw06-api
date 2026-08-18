@@ -35,6 +35,7 @@ const bail = args.includes("--bail");
 const DATA_FILES = {
   "API1-PhoneBoundaries": path.join(root, "postman", "data", "phone-cases.csv"),
   "API2-CouponBoundaries": path.join(root, "postman", "data", "coupon-cases.csv"),
+  "API3-OrderStatusMatrix": path.join(root, "postman", "data", "order-status-cases.csv"),
 };
 
 fs.mkdirSync(reportsDir, { recursive: true });
