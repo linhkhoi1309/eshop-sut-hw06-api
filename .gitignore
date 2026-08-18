@@ -10,6 +10,8 @@ sut/backend/*.sqlite-shm
 # run bookkeeping (regenerated)
 scripts/.sut.pid
 scripts/*.log
+scripts/*.log.err
+sut.log
 
 # Newman raw output is regenerated; the graded HTML report is committed explicitly
 reports/*.json
