@@ -90,6 +90,38 @@ async function main() {
     }
   }
 
+  // --- coupons -------------------------------------------------------------
+  // Reset to the SUT's own 4 defaults with fixed, predictable ids. Not cosmetic:
+  // API 2's extended cases (A2-EX-04, A2-EX-05) create a rogue coupon and
+  // delete+recreate SAVE10 to demonstrate real defects. Without resetting this
+  // table between runs, a second run would start from a state those cases
+  // already mutated - the same "collections corrupt each other's starting
+  // state" trap run-newman.js's header comment already warns about, just for
+  // the coupons table instead of orders/coupon_usage.
+  await run("DELETE FROM coupons");
+  await run("DELETE FROM sqlite_sequence WHERE name = 'coupons'");
+  // Computed fresh each run, not hard-coded: A2-EX-06 tests the exact-expiry-day
+  // boundary (new Date(expired_at) parses to midnight, so "expires today" is a
+  // different case from "expired long ago"). A fixed past/future date can't
+  // exercise that boundary; it has to be today's date whenever the suite runs.
+  const today = new Date().toISOString().slice(0, 10);
+  const COUPON_FIXTURES = [
+    ["SAVE10", "percent", 10, 300000, "2099-12-31", 1, 1],
+    ["BIGBUY", "fixed", 50000, 500000, "2099-12-31", 1, 1],
+    ["VIP100", "fixed", 100000, 300000, "2099-12-31", 1, 2],
+    ["EXPIRED", "percent", 20, 100000, "2020-01-01", 1, 1],
+    // Extra fixtures for A2-S2-03 (is_active=0 - not producible via any API in
+    // this SUT, see docs/api2-apply-coupon/audit.md) and A2-EX-06.
+    ["INACTIVE10", "percent", 10, 100000, "2099-12-31", 0, 1],
+    ["EXPIRETODAY", "percent", 15, 100000, today, 1, 1],
+  ];
+  for (const row of COUPON_FIXTURES) {
+    await run(
+      "INSERT INTO coupons (code, type, discount_value, min_order_amount, expired_at, is_active, max_uses_per_user) VALUES (?,?,?,?,?,?,?)",
+      row,
+    );
+  }
+
   // --- coupon usage ------------------------------------------------------
   // Cleared so the max_uses_per_user (C5) tests start from a known count of 0.
   await run("DELETE FROM coupon_usage");

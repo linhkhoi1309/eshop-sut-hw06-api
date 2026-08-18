@@ -1,0 +1,2199 @@
+{
+  "info": {
+    "_postman_id": "hw06-api2-applycoupon-23127396",
+    "name": "API2-ApplyCoupon",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const studentId = pm.environment.get('studentId') || pm.collectionVariables.get('studentId');",
+          "if (!studentId) { throw new Error('studentId is not set - select the EShop Local (HW06) environment'); }",
+          "pm.request.headers.upsert({ key: 'X-Student-Id', value: studentId });",
+          "console.log('[X-Student-Id] ' + studentId + ' -> ' + pm.request.method + ' ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('X-Student-Id header sent', function () {",
+          "    pm.expect(pm.request.headers.get('X-Student-Id')).to.eql(pm.environment.get('studentId'));",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Setup",
+      "item": [
+        {
+          "name": "Login as User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{userEmail}}\",\"password\":\"{{userPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('userToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{adminPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('adminToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Victim",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{victimEmail}}\",\"password\":\"{{victimPassword}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('victimToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fetch Coupon IDs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupons"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var coupons = pm.response.json();",
+                  "function idFor(code) { var c = coupons.find(function (x) { return x.code === code; }); return c ? c.id : null; }",
+                  "pm.environment.set('save10Id', idFor('SAVE10'));",
+                  "pm.environment.set('bigbuyId', idFor('BIGBUY'));",
+                  "pm.environment.set('vip100Id', idFor('VIP100'));",
+                  "pm.environment.set('expiredId', idFor('EXPIRED'));",
+                  "pm.environment.set('inactive10Id', idFor('INACTIVE10'));",
+                  "pm.environment.set('expireTodayId', idFor('EXPIRETODAY'));",
+                  "console.log('Coupon ids:', JSON.stringify({ save10: idFor('SAVE10'), bigbuy: idFor('BIGBUY'), vip100: idFor('VIP100'), expired: idFor('EXPIRED'), inactive10: idFor('INACTIVE10'), expireToday: idFor('EXPIRETODAY') }));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "S2 Domain Partitions",
+      "item": [
+        {
+          "name": "A2-S2-01: code valid active happy path [EXPECTED-FAIL: BUG-03]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-01 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S2-01 discount_amount is spec-correct (50000)', function () { pm.expect(pm.response.json().discount_amount).to.eql(50000); });",
+                  "pm.test('A2-S2-01 final_amount is spec-correct (450000)', function () { pm.expect(pm.response.json().final_amount).to.eql(450000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-02: code does not exist",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"NOTREAL\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-02 status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('A2-S2-02 error shape, no discount fields', function () { var j = pm.response.json(); pm.expect(j).to.have.property('error'); pm.expect(j).to.not.have.property('discount_amount'); pm.expect(j).to.not.have.property('final_amount'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-03: code exists but is_active=0",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"INACTIVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-03 status 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('A2-S2-03 error mentions not-found-or-disabled', function () { pm.expect(pm.response.json().error).to.match(/không tồn tại|vô hiệu hóa/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-04: code expired",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"EXPIRED\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-04 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S2-04 error mentions expiry', function () { pm.expect(pm.response.json().error).to.match(/hết hạn/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-05: code empty string",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-05 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S2-05 error asks to enter a code', function () { pm.expect(pm.response.json().error).to.match(/nhập mã/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-06: code wrong type (number)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":12345,\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-06 status 404', function () { pm.response.to.have.status(404); }); // predicted; this run is the live verification"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-07: code omitted",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-07 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S2-07 error asks to enter a code', function () { pm.expect(pm.response.json().error).to.match(/nhập mã/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-08: total_amount exactly at threshold 300000 [EXPECTED-FAIL: BUG-10]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":300000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-08 status 200', function () { pm.response.to.have.status(200); }); // spec: >="
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-09: total_amount just below threshold 299999",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":299999,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-09 status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S2-09 error mentions minimum amount', function () { pm.expect(pm.response.json().error).to.match(/tối thiểu/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-10: total_amount just above threshold 300001 [EXPECTED-FAIL: BUG-03]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":300001,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-10 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S2-10 discount_amount is spec-correct (~30000.1)', function () { pm.expect(pm.response.json().discount_amount).to.be.closeTo(30000.1, 0.01); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-11: total_amount zero",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":0,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-11 status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-12: total_amount negative",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":-500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-12 status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-13: total_amount non-numeric string",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":\"abc\",\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-13 status 400', function () { pm.response.to.have.status(400); }); // misleading message, but deterministic branch"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-14: total_amount omitted",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-14 status 400', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-16: user_id wrong type (string)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":\"2\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-16 status 200', function () { pm.response.to.have.status(200); }); // predicted; this run is the live verification"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-17: code case-sensitivity (lowercase)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"save10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-17 status 404', function () { pm.response.to.have.status(404); }); // case-sensitive match, no COLLATE NOCASE"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S2-18: fractional total_amount crossing BIGBUY's threshold",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":500000.5,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S2-18 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S2-18 discount_amount=50000, final_amount=450000.5', function () { var j = pm.response.json(); pm.expect(j.discount_amount).to.eql(50000); pm.expect(j.final_amount).to.eql(450000.5); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "S3 State Transitions",
+      "item": [
+        {
+          "name": "A2-S3-01 / A2-EX-01: Preview-only calls never consume a use [FINDING: candidate BUG-13]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-01 first preview call succeeds', function () { pm.response.to.have.status(200); });",
+                  "pm.sendRequest({ url: pm.environment.get('baseUrl') + '/api/apply-coupon', method: 'POST', header: { 'Content-Type': 'application/json', 'X-Student-Id': pm.environment.get('studentId') }, body: { mode: 'raw', raw: JSON.stringify({ code: 'SAVE10', total_amount: 500000, user_id: 2 }) } }, function (err, res) {",
+                  "    pm.test('A2-EX-01 second preview call ALSO succeeds - no use was ever recorded', function () { pm.expect(res.code).to.eql(200); });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-02a: Record one SAVE10 use for user 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupon-usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupon-usage"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"coupon_id\": {{save10Id}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-02a status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-02b: Second SAVE10 apply is correctly rejected (C5 passed negative result)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-02b status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S3-02b error mentions the 1-use limit', function () { pm.expect(pm.response.json().error).to.match(/1 lần/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-03: VIP100 first use within limit (usage 0->1)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"VIP100\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-03 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S3-03 discount_amount=100000 (fixed, unaffected by BUG-03)', function () { pm.expect(pm.response.json().discount_amount).to.eql(100000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-03b: Record first VIP100 use",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupon-usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupon-usage"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"coupon_id\": {{vip100Id}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-03b status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-03c: VIP100 second use within limit (usage 1->2)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"VIP100\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-03c status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S3-03c discount_amount=100000', function () { pm.expect(pm.response.json().discount_amount).to.eql(100000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-04a: Record second VIP100 use",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupon-usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupon-usage"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"coupon_id\": {{vip100Id}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-04a status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-04b: VIP100 third use exactly at limit is rejected (C5 boundary passed negative result)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"VIP100\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-04b status 400', function () { pm.response.to.have.status(400); });",
+                  "pm.test('A2-S3-04b error mentions the 2-use limit', function () { pm.expect(pm.response.json().error).to.match(/2 lần/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S3-05: Per-user quota isolation - fresh victim can still use SAVE10",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S3-05 status 200', function () { pm.response.to.have.status(200); }); // user 2's exhausted SAVE10 quota does not affect user 3"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "S4 Security",
+      "item": [
+        {
+          "name": "S4 Setup: Victim applies BIGBUY",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('S4 Setup a status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S4 Setup: Victim records the BIGBUY use",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{victimToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupon-usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupon-usage"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"coupon_id\": {{bigbuyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('S4 Setup b status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-01: no Authorization header [EXPECTED-FAIL: BUG-06]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-01 status 401', function () { pm.response.to.have.status(401); }); // spec expects rejection; SUT has no auth middleware on this route at all"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-02: malformed JWT [EXPECTED-FAIL: BUG-06]",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{garbageToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-02 status 401 or 403', function () { pm.expect([401, 403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-03: user_id in body discloses another user's usage state [EXPECTED-FAIL: BUG-06]",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-03 status 200', function () { pm.response.to.have.status(200); }); // spec-correct: token identity (user 2, unused) should apply, not body user_id 3 (victim, already exhausted)"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-04: user_id omitted entirely bypasses C5 [EXPECTED-FAIL: BUG-06]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-04 status 400', function () { pm.response.to.have.status(400); }); // spec: C4 requires an identity to check C5 against; SUT skips the quota check block entirely when user_id is falsy/absent (server.js:386) and returns 200"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-05a: Attacker spoofs a coupon-usage write against victim's id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/coupon-usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "coupon-usage"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"coupon_id\": {{vip100Id}}, \"user_id\": {{victimId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-05a status 200', function () { pm.response.to.have.status(200); }); // handler only reads coupon_id from the body; the insert itself uses req.user.id"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-05b: Victim's own VIP100 quota is unaffected (passed negative result)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"VIP100\",\"total_amount\":500000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-05b status 200', function () { pm.response.to.have.status(200); }); // proves the spoofed insert above wrote under the attacker's real id, not the victim's"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-06: SQL injection in code (negative result)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"' OR '1'='1\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-06 status 404', function () { pm.response.to.have.status(404); }); // parameterised query - injection string just doesn't match any code"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-07: Mass assignment of discount_amount/final_amount is ignored",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":2,\"discount_amount\":999999,\"final_amount\":1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-07 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S4-07 server-computed values ignore client input', function () { var j = pm.response.json(); pm.expect(j.discount_amount).to.eql(50000); pm.expect(j.final_amount).to.eql(550000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-08: malformed Content-Type crashes the handler",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-08 status 500', function () { pm.response.to.have.status(500); }); // bodyParser.json() skips non-JSON content types; req.body is undefined; destructuring throws"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S4-09: numeric precision loss compounds with BUG-03",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":1e+21,\"user_id\":1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S4-09 status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-S4-09 discount_amount/final_amount are numbers', function () { var j = pm.response.json(); pm.expect(j.discount_amount).to.be.a('number'); pm.expect(j.final_amount).to.be.a('number'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "S5 Schema Validation",
+      "item": [
+        {
+          "name": "A2-S5-01/02/03/05/06/07: success shape, formula (BUG-03), Content-Type, absence, message [EXPECTED-FAIL: BUG-03]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S5-01 success response shape', function () { var j = pm.response.json(); pm.expect(j).to.have.property('success'); pm.expect(j).to.have.property('coupon_id'); pm.expect(j.discount_amount).to.be.a('number'); pm.expect(j.final_amount).to.be.a('number'); });",
+                  "pm.test('A2-S5-02 discount_amount is spec-correct (50000)', function () { pm.expect(pm.response.json().discount_amount).to.eql(50000); });",
+                  "pm.test('A2-S5-03 final_amount is spec-correct and non-negative (450000)', function () { var j = pm.response.json(); pm.expect(j.final_amount).to.eql(450000); pm.expect(j.final_amount).to.be.at.least(0); });",
+                  "pm.test('A2-S5-05 Content-Type is application/json', function () { pm.response.to.have.header('Content-Type'); pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });",
+                  "pm.test('A2-S5-06 no internal coupon-record fields leaked', function () { var j = pm.response.json(); pm.expect(j).to.not.have.property('is_active'); pm.expect(j).to.not.have.property('max_uses_per_user'); pm.expect(j).to.not.have.property('type'); pm.expect(j).to.not.have.property('discount_value'); pm.expect(j).to.not.have.property('expired_at'); });",
+                  "pm.test('A2-S5-07 message mentions the percent value', function () { pm.expect(pm.response.json().message).to.include('10%'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-S5-07b: message content for a fixed-type coupon",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-S5-07b message mentions the fixed amount in dong', function () { var j = pm.response.json(); pm.expect(j.message).to.match(/50.000|50,000/); pm.expect(j.message).to.include('₫'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "EX Human Extensions",
+      "item": [
+        {
+          "name": "A2-EX-02: user_id=0 bypasses C5 (JS falsy) [EXPECTED-FAIL: BUG-06]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":0}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-02 status 400', function () { pm.response.to.have.status(400); }); // spec: 0 is a syntactically valid user_id and C5 should be checked against it; SUT's if(user_id) treats 0 as falsy and skips the check, returning 200"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-03a: Enumerate victim on SAVE10 (unauthenticated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-03a status 200', function () { pm.response.to.have.status(200); }); // victim has not used SAVE10 - disclosed with zero credentials"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-03b: Enumerate victim on BIGBUY (unauthenticated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"BIGBUY\",\"total_amount\":600000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-03b discloses victim already used BIGBUY', function () { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.match(/1 lần/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-03c: Enumerate victim on VIP100 (unauthenticated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"VIP100\",\"total_amount\":500000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-03c status 200', function () { pm.response.to.have.status(200); }); // victim has not used VIP100 - disclosed with zero credentials"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-03d: Enumerate victim on EXPIRED (unauthenticated)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"EXPIRED\",\"total_amount\":500000,\"user_id\":3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-03d status 400', function () { pm.response.to.have.status(400); }); // always expired regardless of user; included for completeness of the 4-coupon profile"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-04a: Any authenticated user can create a coupon [EXPECTED-FAIL: SEC-03]",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "coupons"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"HACKED50\",\"type\":\"fixed\",\"discount_value\":999999,\"min_order_amount\":0,\"expired_at\":\"2099-12-31\",\"max_uses_per_user\":9999}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-04a status 403', function () { pm.response.to.have.status(403); }); // spec (SEC-03) expects rejection for a non-admin token; authenticateToken never checks role, so this actually returns 200"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-04b: The forged coupon is immediately live",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"HACKED50\",\"total_amount\":1,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-04b status 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('A2-EX-04b discount_amount=999999 as forged', function () { pm.expect(pm.response.json().discount_amount).to.eql(999999); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-06: A coupon expiring today is already rejected [FINDING: off-by-one-day boundary]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"EXPIRETODAY\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-06 status 400', function () { pm.response.to.have.status(400); }); // new Date(expired_at) parses to midnight; rejected for the entire day, not just the day after",
+                  "pm.test('A2-EX-06 error mentions expiry', function () { pm.expect(pm.response.json().error).to.match(/hết hạn/); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-05a: Admin deletes SAVE10 (exhausted for user 2 since A2-S3-02)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons/{{save10Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "coupons",
+                "{{save10Id}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-05a status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-05b: Admin recreates a coupon with the same code SAVE10",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/coupons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "coupons"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"type\":\"percent\",\"discount_value\":10,\"min_order_amount\":300000,\"expired_at\":\"2099-12-31\",\"max_uses_per_user\":1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-05b status 200', function () { pm.response.to.have.status(200); });",
+                  "var j = pm.response.json(); if (j.id) pm.environment.set('save10Id', j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A2-EX-05c: User 2's exhausted SAVE10 quota was silently reset [FINDING: candidate new bug]",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "apply-coupon"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"SAVE10\",\"total_amount\":500000,\"user_id\":2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('A2-EX-05c status 200', function () { pm.response.to.have.status(200); }); // was rejected in A2-S3-02b; succeeds again because coupon_usage keys on the OLD internal id, not the code"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
