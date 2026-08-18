@@ -90,7 +90,7 @@ Seeded fixture IDs (deterministic, asserted by the smoke run): tester `id=2` ord
 | Postman environment | `postman/environments/local.postman_environment.json` | 27 variables, resolves under Newman |
 | Harness smoke collection | `postman/collections/_harness-smoke.postman_collection.json` | **3 requests / 9 assertions / 0 failures** |
 | Reseeding multi-collection runner | `scripts/run-newman.js` | Correctly reports "no graded collections yet" |
-| CI/CD pipeline | `.github/workflows/api-tests.yml` | Written; first run happens at §3 step T0 |
+| CI/CD pipeline | `.github/workflows/api-tests.yml` | **Green on GitHub Actions** — [run 32100673624](https://github.com/linhkhoi1309/eshop-sut-hw06-api/actions/runs/32100673624), 3 requests / 9 assertions / 0 failures on a fresh Ubuntu runner |
 | Agent Skills | `skills/{api-testcase-generator,api-testcase-audit,newman-execution-evidence,ai-audit-log}` | Discoverable via `.claude/skills` junction |
 
 The `X-Student-Id: 23127396` header is set by a collection-level pre-request script, `console.log`ged for the §11 screenshot, and asserted by a collection-level `pm.test` — already passing in the smoke run.
@@ -101,7 +101,7 @@ The `X-Student-Id: 23127396` header is set by a collection-level pre-request scr
 
 | Step | Work | Artefacts | Commit message |
 |---|---|---|---|
-| **T0** | Push repo, run the pipeline once on the smoke collection to prove CI is wired | Actions run URL | `chore: environment, skills and CI pipeline` |
+| **T0** | ~~Push repo, run the pipeline once on the smoke collection to prove CI is wired~~ — **DONE 2026-08-18**, [run 32100673624](https://github.com/linhkhoi1309/eshop-sut-hw06-api/actions/runs/32100673624) green in 12 s | Actions run URL | `chore: environment, skills and CI pipeline` |
 | **T1** | ~~Confirm API trio with groupmates (§5 non-duplication)~~ — **DONE 2026-08-18**, trio frozen | note in `report.md` | — |
 | **A1-G** | API 1 `PUT /api/users/me` — generate via the 6 stages of `api-testcase-generator` | `docs/api1-users-me/generated.md` (**≥35**) | `feat(api1): AI-generated test cases (stages S1-S6)` |
 | **A1-A** | Audit: VALID / INVALID / INCOMPLETE + corrections | `docs/api1-users-me/audit.md` | `docs(api1): human audit of generated cases` |
@@ -200,7 +200,7 @@ Planned, with where each will actually be used — a feature list without a use 
 | §14 item | Path | Status |
 |---|---|---|
 | Main report (MD + PDF) | `report.md`, `submission/report.pdf` | pending |
-| Public GitHub repo link | `eshop-sut-hw06-api` | pending T0 |
+| Public GitHub repo link | https://github.com/linhkhoi1309/eshop-sut-hw06-api | **done** |
 | Postman collections (`.json`) | `postman/collections/API{1,2,3}-*.json` | pending |
 | Newman HTML reports | `reports/*.html` | pending |
 | Postman feature list | `report.md` §Postman features | drafted in §6 above |
