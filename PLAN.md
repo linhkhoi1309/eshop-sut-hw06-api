@@ -34,7 +34,7 @@ Between them these three cover all four mandated dimensions — partitions, stat
 
 `POST /api/login` was the original Pool A pick and was dropped — it is a groupmate's endpoint (§5 forbids duplication within the group). HW05 used `GET /api/products`, `POST /api/forgot-password` and `PUT /api/orders/:id/cancel`, so there is no overlap with my own prior work either.
 
-**Open item:** confirm the final trio with groupmates **before** generation starts. One collision has already cost a re-plan; a second discovered after generation would cost that API's whole pipeline.
+**Selection CONFIRMED 2026-08-18** — student confirmed the trio against the group's allocations before any generation work started. `POST /api/login` was the one collision and has been replaced. This trio is now **frozen**: from here on, changing an API costs that API's entire pipeline (generate → audit → extend → execute → report), so any later conflict is escalated rather than absorbed.
 
 ---
 
@@ -102,7 +102,7 @@ The `X-Student-Id: 23127396` header is set by a collection-level pre-request scr
 | Step | Work | Artefacts | Commit message |
 |---|---|---|---|
 | **T0** | Push repo, run the pipeline once on the smoke collection to prove CI is wired | Actions run URL | `chore: environment, skills and CI pipeline` |
-| **T1** | Confirm API trio with groupmates (§5 non-duplication) | note in `report.md` | — |
+| **T1** | ~~Confirm API trio with groupmates (§5 non-duplication)~~ — **DONE 2026-08-18**, trio frozen | note in `report.md` | — |
 | **A1-G** | API 1 `PUT /api/users/me` — generate via the 6 stages of `api-testcase-generator` | `docs/api1-users-me/generated.md` (**≥35**) | `feat(api1): AI-generated test cases (stages S1-S6)` |
 | **A1-A** | Audit: VALID / INVALID / INCOMPLETE + corrections | `docs/api1-users-me/audit.md` | `docs(api1): human audit of generated cases` |
 | **A1-E** | Extend: ≥5 human cases + why the AI missed each | `docs/api1-users-me/extended.md` | `feat(api1): human-added cases the AI missed` |
@@ -186,7 +186,7 @@ Planned, with where each will actually be used — a feature list without a use 
 
 | Risk | Mitigation |
 |---|---|
-| Group-duplicate API selection (§5) — **already hit once** on `POST /api/login` | Re-confirm all three at step T1, **before** generation. The cost so far was a re-plan; after generation it would be a full API pipeline |
+| Group-duplicate API selection (§5) — hit once on `POST /api/login`, **now closed** | Trio confirmed against the group 2026-08-18, before any generation. Residual risk is a groupmate changing *their* selection later; that surfaces as a conflict on their side, not silently on mine |
 | Lockout poisoning later cases | Reseed between collections (`run-newman.js`); `reset-lockout.js` for ad-hoc runs |
 | "Green pipeline" achieved by weakening assertions | Known-defect cases quarantined into a folder CI excludes, and named in the CI report |
 | Monitor/mock need a Postman cloud account and cannot reach `localhost` | Mock covers a spec-correct `apply-coupon`; monitor targets the mock; the limitation is documented |
