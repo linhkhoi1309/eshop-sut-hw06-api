@@ -21,7 +21,7 @@ analogy), SEC-02, SEC-05
 
 ---
 
-## S2 — Domain Partitions (16 cases)
+## S2 — Domain Partitions (18 cases)
 
 | ID | Title | Technique | Preconditions | Request | Expected Status | Expected Body | Spec Justification |
 |---|---|---|---|---|---|---|---|
@@ -41,6 +41,8 @@ analogy), SEC-02, SEC-05
 | A2-S2-14 | total_amount — omitted field | EP | None | `{"code":"SAVE10","user_id":2}` | UNDETERMINED | UNDETERMINED | §5.1 body always shows `total_amount` |
 | A2-S2-15 | user_id — omitted field | EP | Logged in via valid JWT | `{"code":"SAVE10","total_amount":500000}` | UNDETERMINED | UNDETERMINED | FR-09 C4 implies token, not body, carries identity |
 | A2-S2-16 | user_id — wrong type (string) | EP | None | `{"code":"SAVE10","total_amount":500000,"user_id":"2"}` | UNDETERMINED | UNDETERMINED | No type-validation rule stated |
+| A2-S2-17 | code — case-sensitivity (lowercase vs. seeded uppercase) | EP | None | `{"code":"save10","total_amount":500000,"user_id":2}` | UNDETERMINED | UNDETERMINED | Spec states no case-folding rule for `code` |
+| A2-S2-18 | total_amount — fractional value crossing a different coupon's threshold (`BIGBUY`, min 500,000) | BVA | Logged in, quota unused | `{"code":"BIGBUY","total_amount":500000.5,"user_id":2}` | 200 | `discount_amount=50000`, `final_amount=450000.5` | FR-09 C3 — a non-integer boundary crossing on a **fixed**-type coupon, independent of the `SAVE10`-based boundary cases above |
 
 ---
 
@@ -59,7 +61,7 @@ reject once `usage_count == max_uses_per_user`. See `s3-state-transitions.md` fo
 
 ---
 
-## S4 — Security (7 cases)
+## S4 — Security (9 cases)
 
 | ID | Title | Technique | Preconditions | Request | Expected Status | Expected Body | Spec Justification |
 |---|---|---|---|---|---|---|---|
@@ -70,10 +72,12 @@ reject once `usage_count == max_uses_per_user`. See `s3-state-transitions.md` fo
 | A2-S4-05 | Cross-user quota exhaustion (DoS on victim's allowance) | IDOR / Abuse | Attacker knows victim `user_id=3`; victim unused | Repeat `{"code":"SAVE10","total_amount":500000,"user_id":3}` until `max_uses_per_user` reached | UNDETERMINED | Victim's own later legitimate call must then be rejected by C5 | FR-09 C4 requires the *logged-in* user's own JWT |
 | A2-S4-06 | SEC-05: SQL injection in `code` (negative result) | SQL Injection | None | `{"code":"' OR '1'='1","total_amount":500000,"user_id":2}` | 400 | No DB error; coupon simply not found | SEC-05 — expected PASS if parameterised |
 | A2-S4-07 | Mass assignment: client supplies `discount_amount`/`final_amount` | Mass Assignment | Logged in | `{"code":"SAVE10","total_amount":500000,"user_id":2,"discount_amount":999999,"final_amount":1}` | 200 | Server-computed values MUST match the formula, ignoring client input | FR-08 (server owns monetary computation), FR-09 formula |
+| A2-S4-08 | Malformed request body (wrong `Content-Type`, not JSON) | Malformed Input | None | `POST /api/apply-coupon` with `Content-Type: text/plain` and a raw string body `"code=SAVE10"` (not parsed as JSON) | UNDETERMINED | UNDETERMINED — likely falls into the `!code` 400 branch since an unparsed body leaves `req.body` empty | Robustness — spec doesn't define non-JSON handling |
+| A2-S4-09 | Numeric overflow: `total_amount` far beyond safe integer range | Robustness / BVA | None | `{"code":"SAVE10","total_amount":999999999999999999999,"user_id":2}` | UNDETERMINED | UNDETERMINED — precision loss on a value beyond `Number.MAX_SAFE_INTEGER` could corrupt the discount computation silently rather than erroring | Spec gives no upper bound on `total_amount`; a real cart total cannot be unbounded |
 
 ---
 
-## S5 — Schema Validation (5 cases, 1 de-duplicated)
+## S5 — Schema Validation (6 cases, 1 de-duplicated)
 
 *A2-S5-04 (error response shape) merged into A2-S2-02 — same request, same assertion scope.*
 
@@ -84,6 +88,7 @@ reject once `usage_count == max_uses_per_user`. See `s3-state-transitions.md` fo
 | A2-S5-03 | `final_amount` — value and non-negativity | Schema/Formula | Same as S5-01 | Same request | 200 | `=== 450000`; `>= 0` | FR-09: `final = total - discount` |
 | A2-S5-05 | Response `Content-Type` is `application/json` | Header | Same as S5-01 | Same request | 200 | Header contains `application/json` | Implicit (`res.json`) |
 | A2-S5-06 | Response does not leak internal coupon-record fields | Negative Schema | Same as S5-01 | Same request | 200 | MUST NOT include coupon's own `id`, `is_active`, `max_uses_per_user`, or another user's usage data | §5.1 states response = `discount_amount` + `final_amount` only |
+| A2-S5-07 | `message` field content varies correctly by coupon type | Schema (exploratory) | Logged in | Two requests: `BIGBUY` (fixed) and `SAVE10` (percent), otherwise valid | 200 | `message` is a non-empty string; for a `fixed` coupon it should reference the currency-formatted `discount_value`, for a `percent` coupon the `%` value — exact wording UNDETERMINED, spec doesn't define message text | API §5.1 doesn't specify `message`; exploratory assertion of the observed response shape, same convention as API 1's S5 stage |
 
 ---
 
@@ -93,11 +98,11 @@ reject once `usage_count == max_uses_per_user`. See `s3-state-transitions.md` fo
 
 | Stage | Count | Notes |
 |---|---|---|
-| S2 Domain Partitions | 16 | 7 code, 7 total_amount, 2 user_id |
+| S2 Domain Partitions | 18 | 7 code, 7 total_amount, 2 user_id, 1 case-sensitivity, 1 fractional-boundary-on-a-second-coupon |
 | S3 State Transitions | 5 | 2 single-use lifecycle, 2 multi-use lifecycle (incl. exact-limit boundary), 1 per-user isolation |
-| S4 Security | 7 | 2 authentication, 3 IDOR/identity, 1 injection, 1 mass assignment |
-| S5 Schema | 5 | 3 success-shape/formula, 1 Content-Type, 1 absence |
-| **Total** | **33** | Close to the ~32 planned for this API (`PLAN.md` §4) — the remaining gap to the ≥35 floor is intentionally left for the human-extension stage (A2-E), not padded here |
+| S4 Security | 9 | 2 authentication, 3 IDOR/identity, 1 injection, 1 mass assignment, 2 malformed/robustness |
+| S5 Schema | 6 | 3 success-shape/formula, 1 Content-Type, 1 absence, 1 message-content |
+| **Total** | **38** | Exceeds the **≥35-per-API generation floor** (Requirement §6: "Provide the SUT's API specification to an AI tool... target ≥35 per API"). `PLAN.md` §4's own ~32 estimate was written before this floor was re-confirmed against the assignment text; the human-extension stage (A2-E) still adds ≥5 cases the AI structurally could not produce, on top of this |
 
 ### De-duplication Log
 
@@ -128,4 +133,4 @@ they belong in the report as tested-and-passed negative results, the same treatm
 | **Critical** | A2-S5-02/03 (inverted discount formula — money bug), A2-S4-01/03/04/05 (no authentication + IDOR on a monetary endpoint) |
 | **High** | A2-S2-08 (`>=` threshold boundary), A2-S3-02/04 (quota-exhaustion rejection) |
 | **Medium** | A2-S2-01–07 (code partitions), A2-S3-01/03/05 (usage lifecycle happy paths) |
-| **Low** | A2-S2-11–16 (zero/negative/type-coercion edge cases), A2-S5-05/06 (Content-Type, absence), A2-S4-06/07 (injection negative result, mass assignment) |
+| **Low** | A2-S2-11–18 (zero/negative/type-coercion/case-sensitivity/fractional edge cases), A2-S5-05/06/07 (Content-Type, absence, message content), A2-S4-06/07/08/09 (injection negative result, mass assignment, malformed body, numeric overflow) |

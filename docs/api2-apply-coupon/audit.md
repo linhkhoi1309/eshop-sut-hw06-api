@@ -18,13 +18,17 @@ every S3 case as originally written. See the S3 table below.
 
 | Label | Count |
 |---|---|
-| **VALID** | 2 |
+| **VALID** | 3 |
 | **INVALID** | 9 |
-| **INCOMPLETE** | 22 |
+| **INCOMPLETE** | 26 |
 
 The high INCOMPLETE count mirrors API 1's audit for the same reason: the generation stage correctly
 left an assertion as `UNDETERMINED` whenever the spec alone didn't determine it (per the generator's
 own no-guessing rule) — reading `server.js` now resolves nearly all of them to a concrete value.
+
+Counts cover all 38 cases in `generated.md`, including the five (`A2-S2-17/18`, `A2-S4-08/09`,
+`A2-S5-07`) added after the initial pass to meet the Requirement §6 generation floor of ≥35 per API —
+those five are audited below alongside the original 33, not exempted from review.
 
 ---
 
@@ -48,6 +52,8 @@ own no-guessing rule) — reading `server.js` now resolves nearly all of them to
 | A2-S2-14 | **INCOMPLETE** | `undefined > 300000` → `false` → same branch as A2-S2-13. | **Correction:** Same as A2-S2-13. |
 | A2-S2-15 | **INVALID (duplicate)** | The prediction ("omitted `user_id` shouldn't itself be an error") was directionally right but for the wrong reason, and it duplicates a case that belongs in S4. `server.js:386`: `if (user_id) { ...quota check... } else { ...quota check skipped entirely... }` — omitting `user_id` doesn't just avoid an error, it **bypasses C5 completely**, which is a security-significant finding, not a plain domain-partition observation. | **Correction:** Merge into A2-S4-04, which already targets exactly this code path under the security lens. Do not keep two cases asserting the same request. |
 | A2-S2-16 | **INCOMPLETE** | `user_id: "2"` (string) reaches `db.get(..., [coupon.id, user_id], ...)` against an `INTEGER`-affinity column (`database.js`'s `coupon_usage` — not shown above but implied by `user_id` usage throughout). SQLite's NUMERIC/INTEGER affinity coercion should convert `"2"` → `2` for comparison, making this behave identically to the numeric case. Not 100% certain from static reading alone. | **Correction:** Predicted: identical behavior to `user_id: 2`. Flagged for live verification at A2-X, same caveat as A2-S2-06. |
+| A2-S2-17 | **INCOMPLETE** | `code TEXT UNIQUE` (`database.js:31`) has no `COLLATE NOCASE` clause, so SQLite's default `BINARY` collation applies to `code = ?` (`server.js:370`) — the comparison is case-sensitive. `"save10"` will not match the seeded `"SAVE10"`. | **Correction:** Same not-found path as A2-S2-02: expected 404, body `{"error":"Mã giảm giá không tồn tại hoặc đã bị vô hiệu hóa"}`. Not `EXPECTED-FAIL` — spec never claims case-insensitive matching. |
+| A2-S2-18 | **VALID** | Correct as designed: `500000.5 > 500000` is `true` in JS, so this reaches the `BIGBUY` (fixed-type) branch, unaffected by both BUG-03 (percent-only) and BUG-10 (this amount is genuinely above the threshold, not sitting on it). `discount_amount=50000`, `final_amount=500000.5-50000=450000.5`. | — Useful as a **passed-negative-result contrast** to A2-S2-08 in the report: non-boundary fractional inputs work correctly; only the exact-boundary case (BUG-10) and the percent formula (BUG-03) are broken. |
 
 ---
 
@@ -80,6 +86,8 @@ is corrected to insert that call as an explicit step wherever the original assum
 | A2-S4-05 | **INVALID** | The premise — "repeatedly calling `apply-coupon` with the victim's `user_id` burns their quota" — is false. `apply-coupon` never writes to `coupon_usage` (see the note at the top of S3). The only write path, `/api/coupon-usage` (`server.js:443-451`), is authenticated and inserts under `req.user.id` from the token, **ignoring** any body field — an attacker cannot make it write against a `user_id` other than their own. So the described DoS/exhaustion attack is not achievable through any exposed endpoint; only the read-only disclosure in A2-S4-03 is. | **Correction — repurposed:** "`/api/coupon-usage` correctly scopes writes to the token's own identity (passed negative result)." As user A, `POST /api/coupon-usage {"coupon_id": <id>}` — assert the resulting row's `user_id` in the DB (or via a follow-up `apply-coupon` quota check as user A) reflects A's own id regardless of any extra `user_id` field added to the body (the handler destructures only `coupon_id`, `server.js:445`, so a spoofed `user_id` in the body is silently ignored). Not `EXPECTED-FAIL` — this is implemented correctly. |
 | A2-S4-06 | **INCOMPLETE** | Right technique and premise, wrong status code (inherits A2-S2-02's fix). `server.js:370`: `code = ?` is parameterized — the injection string is bound as a literal, matches no real coupon code, and the same not-found path as A2-S2-02 fires. | **Correction:** Expected status = **404** (not 400), same body shape as A2-S2-02. Negative-result framing (SEC-05 satisfied) is otherwise correct and unchanged. |
 | A2-S4-07 | **INCOMPLETE** | The mass-assignment check itself is correct (`server.js:364` destructures only `code, total_amount, user_id` — client-sent `discount_amount`/`final_amount` are never read), but using `SAVE10` (percent) entangles this assertion with the unrelated BUG-03 formula bug, since the server's *own* computed value is also wrong. | **Correction:** Switch to `VIP100` (fixed type, unaffected by BUG-03) so the case cleanly isolates the mass-assignment dimension: `{"code":"VIP100","total_amount":500000,"user_id":2,"discount_amount":999999,"final_amount":1}` → 200, `discount_amount=100000`, `final_amount=400000` (the server's own correct, formula-computed values — client's injected values fully ignored). |
+| A2-S4-08 | **INCOMPLETE** | `bodyParser.json()` (`server.js:12`) only parses when `Content-Type: application/json`; for `text/plain` it leaves `req.body` as `undefined`. `const { code, total_amount, user_id } = req.body` (`server.js:364`) then **throws** a `TypeError` (destructuring `undefined`), uncaught by the handler — Express's default error middleware turns this into a **500**, not the originally-guessed 400. | **Correction:** Expected status = **500** (an uncaught-exception crash, not a graceful validation error). This is itself a minor robustness finding — worth a note in the report as "malformed content-type crashes the handler instead of returning 400" rather than a numbered `EXPECTED-FAIL`/BUG-xx, since no FR/SEC line specifically mandates graceful non-JSON handling. |
+| A2-S4-09 | **INCOMPLETE** | The original framing speculated a distinct "overflow" failure mode; that overstates what actually happens. `JSON.parse` represents `999999999999999999999` as the nearest IEEE-754 double (~`1e21`) with **silent precision loss**, not a parse error or a thrown exception — JS never throws on out-of-safe-integer arithmetic. The request proceeds normally into the same percent-formula path as A2-S2-01/10. | **Correction:** Predicted 200, subject to the **same BUG-03** as A2-S2-01, just with a more extreme (and already-imprecise) input value. Retitle from "numeric overflow" to "float-precision loss on an unrealistically large `total_amount`" — the mechanism is precision, not overflow-crash. |
 
 ---
 
@@ -94,6 +102,7 @@ is corrected to insert that call as an explicit step wherever the original assum
 | A2-S5-03 | **VALID** | Same as A2-S5-02 for `final_amount`; correctly written as `>= 0` (a spec-implied sanity bound, not a stated rule) and already tagged. | — |
 | A2-S5-05 | **VALID** | Correct. `res.json()` always sets `Content-Type: application/json; charset=utf-8`. Both oracles agree — not derived from a specific line, this is Express's own behavior. | — |
 | A2-S5-06 | **VALID** | Correct and confirmed. The success-response literal at `server.js:407-413` is hand-built field-by-field from the fetched `coupon` row — it does **not** spread the row, so `is_active`, `max_uses_per_user`, `type`, `discount_value`, `expired_at` are genuinely absent despite the full row being fetched into memory at `:370`. Passed negative result. | — |
+| A2-S5-07 | **INCOMPLETE** | `server.js:412,431`: `` `Áp dụng thành công! Giảm ${coupon.type === "percent" ? coupon.discount_value + "%" : coupon.discount_value.toLocaleString() + " ₫"}` ``. Fully resolvable from source instead of left `UNDETERMINED`. | **Correction:** For `BIGBUY` (fixed, 50000): message contains `"50,000 ₫"` (exact thousands-separator is locale-dependent — assert via substring/regex, not exact-string). For `SAVE10` (percent, 10): message contains `"10%"`. |
 
 ---
 
@@ -115,6 +124,14 @@ is corrected to insert that call as an explicit step wherever the original assum
 | A2-S4-05 | False premise — apply-coupon can't write usage, so it can't be used to exhaust a victim's quota | Repurposed into a passed-negative-result case for `/api/coupon-usage`'s correct token-scoping |
 | A2-S4-07 | Coupled an unrelated dimension (mass assignment) to the formula bug by using `SAVE10` | Switched to `VIP100` (fixed type) to isolate the assertion |
 | A2-S5-01 | Missed two response fields that are actually present | Added `success`/`coupon_id` assertions |
+| A2-S2-17 | Left case-sensitivity outcome `UNDETERMINED` | Resolved via schema read (`code TEXT UNIQUE`, no `COLLATE NOCASE`) — case-sensitive, 404 |
+| A2-S4-08 | Guessed 400 for a malformed non-JSON body | Corrected to 500 — an uncaught destructuring `TypeError` on `req.body === undefined`, not a graceful validation error |
+| A2-S4-09 | Framed as "overflow", implying a crash/error | Corrected to 200 — silent float-precision loss, same BUG-03 path as A2-S2-01, retitled to name the real mechanism |
+| A2-S5-07 | Left exact message content `UNDETERMINED` | Resolved via the template literal at `server.js:412` — concrete substrings for both coupon types |
+
+Five cases (`A2-S2-17/18`, `A2-S4-08/09`, `A2-S5-07`) were added to `generated.md` after this audit's
+first pass, to bring the generation-stage count from 33 to 38 and clear the Requirement §6 floor of
+≥35 per API. They are included in the counts and tables above rather than tracked separately.
 
 ### Bugs Surfaced by Audit
 
