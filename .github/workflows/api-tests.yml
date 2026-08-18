@@ -1,0 +1,91 @@
+name: API Tests (Newman)
+
+# Requirement 6 - "Integrate into CI/CD": run the Postman collections against a
+# freshly booted EShop backend on every push and PR, publish the HTML reports,
+# and fail the job when any assertion fails.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  newman:
+    name: Newman against a fresh EShop backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      BASE_URL: http://localhost:3000
+      STUDENT_ID: "23127396"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install test tooling (Newman)
+        run: npm ci --no-audit --no-fund
+
+      - name: Install SUT dependencies
+        run: npm --prefix sut/backend ci --no-audit --no-fund
+
+      # database.js DROPs and re-seeds at module load, so the server must be up
+      # *before* scripts/seed-api-data.js runs. Hence start -> wait -> seed.
+      - name: Start the SUT
+        run: |
+          node sut/backend/server.js > sut.log 2>&1 &
+          echo $! > sut.pid
+          node scripts/wait-for-sut.js
+
+      - name: Seed deterministic fixtures
+        run: node scripts/seed-api-data.js
+
+      - name: Harness self-check (X-Student-Id header + environment)
+        run: npm run test:smoke
+
+      - name: Run graded collections
+        id: newman
+        run: node scripts/run-newman.js
+
+      - name: SUT log (on failure)
+        if: failure()
+        run: cat sut.log
+
+      - name: Upload Newman reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-reports-${{ github.sha }}
+          path: |
+            reports/*.html
+            reports/*.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Newman run - \`${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Collection | Requests | Assertions | Failed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|---:|---:|" >> "$GITHUB_STEP_SUMMARY"
+          for f in reports/*.json; do
+            [ -e "$f" ] || continue
+            node -e '
+              const fs = require("fs");
+              const r = JSON.parse(fs.readFileSync(process.argv[1], "utf8")).run;
+              const name = process.argv[1].split("/").pop().replace(".json", "");
+              console.log(`| ${name} | ${r.stats.requests.total} | ${r.stats.assertions.total} | ${r.stats.assertions.failed} |`);
+            ' "$f" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Stop the SUT
+        if: always()
+        run: kill "$(cat sut.pid)" 2>/dev/null || true

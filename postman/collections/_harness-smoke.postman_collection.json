@@ -1,0 +1,118 @@
+{
+  "info": {
+    "_postman_id": "hw06-harness-smoke-23127396",
+    "name": "_harness-smoke (NOT a graded collection)",
+    "description": "Pipeline harness only. Proves Newman runs, the environment resolves, and the collection-level X-Student-Id pre-request script fires. The three graded collections (API1/API2/API3) are built during the generate+audit+extend steps; this file exists so the CI workflow is green before they land, and it stays as the pipeline self-check afterwards.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Requirement 6.4 / 11: every request must carry X-Student-Id.",
+          "// Set at COLLECTION level so no request can be added without it.",
+          "const studentId = pm.environment.get('studentId') || pm.collectionVariables.get('studentId');",
+          "if (!studentId) { throw new Error('studentId is not set - select the EShop Local (HW06) environment'); }",
+          "pm.request.headers.upsert({ key: 'X-Student-Id', value: studentId });",
+          "console.log('[X-Student-Id] ' + studentId + ' -> ' + pm.request.method + ' ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level guard: the header must actually be on the wire, not just in the script.",
+          "pm.test('X-Student-Id header sent', function () {",
+          "    pm.expect(pm.request.headers.get('X-Student-Id')).to.eql(pm.environment.get('studentId'));",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "SMOKE-01 SUT is up (GET /api/products)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/products", "host": ["{{baseUrl}}"], "path": ["api", "products"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('body is a non-empty array', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.be.an('array').that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SMOKE-02 Seeded login works (POST /api/login)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/login", "host": ["{{baseUrl}}"], "path": ["api", "login"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('a JWT is returned', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.token, 'token').to.be.a('string');",
+              "    pm.expect(body.token.split('.').length, 'JWT has 3 segments').to.eql(3);",
+              "    pm.environment.set('userToken', body.token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "SMOKE-03 Seeded fixtures present (GET /api/orders/my-orders)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/my-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "my-orders"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));",
+              "pm.test('seeder produced one order per state', function () {",
+              "    const states = pm.response.json().map(o => o.status);",
+              "    ['pending','confirmed','shipping','delivered','canceled'].forEach(s =>",
+              "        pm.expect(states, 'missing fixture: ' + s).to.include(s));",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

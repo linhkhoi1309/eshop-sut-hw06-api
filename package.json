@@ -1,0 +1,24 @@
+{
+  "name": "eshop-hw06-api-testing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HW06 - AI-assisted API testing of the EShop SUT (Postman + Newman)",
+  "scripts": {
+    "sut:install": "npm --prefix sut/backend install",
+    "sut:start": "powershell -ExecutionPolicy Bypass -File scripts/start-sut.ps1",
+    "sut:stop": "powershell -ExecutionPolicy Bypass -File scripts/stop-sut.ps1",
+    "seed": "node scripts/seed-api-data.js",
+    "reset-lockout": "node scripts/reset-lockout.js",
+    "wait": "node scripts/wait-for-sut.js",
+    "test": "node scripts/run-newman.js",
+    "test:api1": "node scripts/run-newman.js --only=API1",
+    "test:api2": "node scripts/run-newman.js --only=API2",
+    "test:api3": "node scripts/run-newman.js --only=API3",
+    "test:smoke": "newman run postman/collections/_harness-smoke.postman_collection.json -e postman/environments/local.postman_environment.json -r cli"
+  },
+  "devDependencies": {
+    "newman": "^6.2.1",
+    "newman-reporter-htmlextra": "^1.23.1",
+    "start-server-and-test": "^2.0.10"
+  }
+}
