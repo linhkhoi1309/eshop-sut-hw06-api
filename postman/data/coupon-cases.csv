@@ -1,0 +1,16 @@
+caseId,code,total_amount,user_id,expectedStatus,note
+A2-D-01,SAVE10,299998,1,400,below SAVE10 threshold (300000) - 2
+A2-D-02,SAVE10,299999,1,400,below SAVE10 threshold (300000) - 1
+A2-D-03,SAVE10,300000,1,200,AT SAVE10 threshold - spec >= - EXPECTED-FAIL BUG-10
+A2-D-04,SAVE10,300001,1,200,above SAVE10 threshold - 1
+A2-D-05,SAVE10,300002,1,200,above SAVE10 threshold - 2
+A2-D-06,BIGBUY,499998,1,400,below BIGBUY threshold (500000) - 2
+A2-D-07,BIGBUY,499999,1,400,below BIGBUY threshold (500000) - 1
+A2-D-08,BIGBUY,500000,1,200,AT BIGBUY threshold - spec >= - EXPECTED-FAIL BUG-10
+A2-D-09,BIGBUY,500001,1,200,above BIGBUY threshold - 1
+A2-D-10,BIGBUY,500002,1,200,above BIGBUY threshold - 2
+A2-D-11,VIP100,299998,1,400,below VIP100 threshold (300000) - 2
+A2-D-12,VIP100,299999,1,400,below VIP100 threshold (300000) - 1
+A2-D-13,VIP100,300000,1,200,AT VIP100 threshold - spec >= - EXPECTED-FAIL BUG-10
+A2-D-14,VIP100,300001,1,200,above VIP100 threshold - 1
+A2-D-15,VIP100,300002,1,200,above VIP100 threshold - 2

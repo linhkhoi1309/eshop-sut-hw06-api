@@ -26,12 +26,15 @@ const args = process.argv.slice(2);
 const only = (args.find((a) => a.startsWith("--only=")) || "").split("=")[1];
 const bail = args.includes("--bail");
 
-// Optional data file per API, for the data-driven (Collection Runner) requirement.
-// Keyed by the API prefix rather than the full filename so renaming a collection
-// does not silently drop its data file and turn 12 iterations into 1.
+// Optional data file per collection, for the data-driven (Collection Runner) requirement.
+// Keyed by the full collection name, not the API prefix: an API can have more than one
+// collection (API2-ApplyCoupon plus the dedicated API2-CouponBoundaries sweep), and -d
+// applies to the *whole* collection for every iteration - attaching it by prefix would
+// silently replay API2-ApplyCoupon's logins, coupon-usage writes and admin mutations once
+// per CSV row too, which is wrong for a collection that isn't built to be re-entrant.
 const DATA_FILES = {
-  API1: path.join(root, "postman", "data", "phone-cases.csv"),
-  API2: path.join(root, "postman", "data", "coupon-cases.csv"),
+  "API1-UsersMe": path.join(root, "postman", "data", "phone-cases.csv"),
+  "API2-CouponBoundaries": path.join(root, "postman", "data", "coupon-cases.csv"),
 };
 
 fs.mkdirSync(reportsDir, { recursive: true });
@@ -77,12 +80,16 @@ for (const file of collections) {
     path.join(reportsDir, `${slug}.json`),
   ];
 
-  const data = DATA_FILES[name.split("-")[0]];
+  const data = DATA_FILES[name];
   if (data && fs.existsSync(data)) argv.push("-d", data);
 
   try {
+    // shell: true is required on Windows - execFileSync spawning a .cmd shim directly
+    // throws EINVAL (a Node/Windows quirk, not a real failure) without it. Harmless on
+    // Ubuntu CI, which spawns the "newman" binary directly rather than a .cmd shim.
     execFileSync(path.join(root, "node_modules", ".bin", process.platform === "win32" ? "newman.cmd" : "newman"), argv, {
       stdio: "inherit",
+      shell: process.platform === "win32",
     });
     summary.push({ name, result: "PASS" });
   } catch (_) {

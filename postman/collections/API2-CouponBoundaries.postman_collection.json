@@ -1,0 +1,81 @@
+{
+  "info": {
+    "_postman_id": "hw06-api2-couponboundaries-23127396",
+    "name": "API2-CouponBoundaries",
+    "description": "Data-driven Collection Runner sweep for the >= threshold boundary (FR-09 C3) across all three real coupons (SAVE10, BIGBUY, VIP100), each at exactly-below/at/above their min_order_amount. Driven by postman/data/coupon-cases.csv via `newman -d`. Every row's expected status asserts the spec-correct value; the three AT-threshold rows are tagged EXPECTED-FAIL against BUG-10 (server.js:379 uses > instead of >=), so 3 of the 15 iterations are expected to fail.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const studentId = pm.environment.get('studentId') || pm.collectionVariables.get('studentId');",
+          "if (!studentId) { throw new Error('studentId is not set - select the EShop Local (HW06) environment'); }",
+          "pm.request.headers.upsert({ key: 'X-Student-Id', value: studentId });",
+          "console.log('[X-Student-Id] ' + studentId + ' -> ' + pm.request.method + ' ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('X-Student-Id header sent', function () {",
+          "    pm.expect(pm.request.headers.get('X-Student-Id')).to.eql(pm.environment.get('studentId'));",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Threshold Boundary Sweep",
+      "item": [
+        {
+          "name": "{{caseId}}: {{code}} total_amount={{total_amount}} -> expect {{expectedStatus}}",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/apply-coupon",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apply-coupon"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"code\":\"{{code}}\",\"total_amount\":{{total_amount}},\"user_id\":{{user_id}}}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const caseId = pm.iterationData.get('caseId');",
+                  "const expectedStatus = Number(pm.iterationData.get('expectedStatus'));",
+                  "const note = pm.iterationData.get('note');",
+                  "console.log(caseId + ': ' + note);",
+                  "pm.test(caseId + ' status ' + expectedStatus + ' (' + note + ')', function () {",
+                  "    pm.response.to.have.status(expectedStatus);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test(caseId + ' success body has discount_amount/final_amount', function () {",
+                  "        var j = pm.response.json();",
+                  "        pm.expect(j.discount_amount).to.be.a('number');",
+                  "        pm.expect(j.final_amount).to.be.a('number');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
