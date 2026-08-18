@@ -1,0 +1,132 @@
+{
+  "info": {
+    "_postman_id": "hw06-api1-phoneboundaries-23127396",
+    "name": "API1-PhoneBoundaries",
+    "description": "Data-driven Collection Runner sweep for FR-04's phone format rule (starts with 0, 10-11 digits): the 9/10/11/12-digit x leading-0-vs-not matrix (PLAN.md S4 features table). Driven by postman/data/phone-cases.csv via `newman -d`. The CSV carries digitCount/leadingZero rather than the literal phone string: Newman's CSV parser coerces numeric-looking columns to actual numbers, which silently strips a leading zero from a value like \"012345678\" - the item's own pre-request script reconstructs the phone string from the two numeric columns instead. Every row asserts the spec-correct status; the SUT has zero phone validation (BUG-09), so every 400-expecting row is EXPECTED-FAIL and actually returns 200 - 6 of the 8 iterations are expected to fail. Login runs once per iteration (harmless/idempotent) so this collection is self-contained regardless of row count or run order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const studentId = pm.environment.get('studentId') || pm.collectionVariables.get('studentId');",
+          "if (!studentId) { throw new Error('studentId is not set - select the EShop Local (HW06) environment'); }",
+          "pm.request.headers.upsert({ key: 'X-Student-Id', value: studentId });",
+          "console.log('[X-Student-Id] ' + studentId + ' -> ' + pm.request.method + ' ' + pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('X-Student-Id header sent', function () {",
+          "    pm.expect(pm.request.headers.get('X-Student-Id')).to.eql(pm.environment.get('studentId'));",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Digit-count x Leading-0 Boundary Sweep",
+      "item": [
+        {
+          "name": "Login as User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"{{userEmail}}\",\"password\":\"{{userPassword}}\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login status is 200', function () { pm.response.to.have.status(200); });",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) pm.environment.set('userToken', jsonData.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "{{caseId}}: digitCount={{digitCount}} leadingZero={{leadingZero}} -> expect {{expectedStatus}}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{userToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "me"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Phone Boundary Test\",\"shipping_address\":\"123 Le Loi\",\"phone\":\"{{computedPhone}}\"}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const digitCount = Number(pm.iterationData.get('digitCount'));",
+                  "const leadingZero = Number(pm.iterationData.get('leadingZero'));",
+                  "const filler = '123456789012';",
+                  "const first = leadingZero ? '0' : '9';",
+                  "const phone = first + filler.slice(0, digitCount - 1);",
+                  "pm.variables.set('computedPhone', phone);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const caseId = pm.iterationData.get('caseId');",
+                  "const digitCount = Number(pm.iterationData.get('digitCount'));",
+                  "const phone = pm.variables.get('computedPhone');",
+                  "const expectedStatus = Number(pm.iterationData.get('expectedStatus'));",
+                  "const note = pm.iterationData.get('note');",
+                  "console.log(caseId + ' phone=\"' + phone + '\": ' + note);",
+                  "pm.test(caseId + ' computed phone has exactly ' + digitCount + ' digits (leading zero preserved)', function () {",
+                  "    pm.expect(phone.length).to.eql(digitCount);",
+                  "});",
+                  "pm.test(caseId + ' status ' + expectedStatus + ' (' + note + ')', function () {",
+                  "    pm.response.to.have.status(expectedStatus);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    pm.sendRequest({ url: pm.environment.get('baseUrl') + '/api/users/me', method: 'GET', header: { 'Authorization': 'Bearer ' + pm.environment.get('userToken'), 'X-Student-Id': pm.environment.get('studentId') } }, function (err, res) {",
+                  "        pm.test(caseId + ' server actually persisted the intended (leading-zero-preserved) phone value', function () {",
+                  "            pm.expect(res.json().phone).to.eql(phone);",
+                  "        });",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

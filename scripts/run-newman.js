@@ -33,7 +33,7 @@ const bail = args.includes("--bail");
 // silently replay API2-ApplyCoupon's logins, coupon-usage writes and admin mutations once
 // per CSV row too, which is wrong for a collection that isn't built to be re-entrant.
 const DATA_FILES = {
-  "API1-UsersMe": path.join(root, "postman", "data", "phone-cases.csv"),
+  "API1-PhoneBoundaries": path.join(root, "postman", "data", "phone-cases.csv"),
   "API2-CouponBoundaries": path.join(root, "postman", "data", "coupon-cases.csv"),
 };
 
