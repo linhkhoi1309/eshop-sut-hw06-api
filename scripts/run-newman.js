@@ -1,10 +1,12 @@
 /**
  * Runs every graded Postman collection, re-seeding between them.
  *
- * Re-seeding is not optional:
- *   - API1 (login) deliberately sends wrong passwords, and server.js:54 adds *2* per
- *     failure with a lock at >= 3, so the tester account is locked out afterwards.
- *   - API3 (admin order status) mutates the order rows the state-machine cases start from.
+ * Re-seeding is not optional - the collections corrupt each other's starting state:
+ *   - API1 (PUT /api/users/me) escalates the tester's `role` to admin (SEC-06) and
+ *     NULLs their profile fields via the partial-update cases. Leaving `role=admin`
+ *     behind would make API3's authorization cases pass for the wrong reason.
+ *   - API3 (admin order status) mutates the order rows its own state-machine cases
+ *     start from.
  * A single Newman invocation over all three would therefore be order-dependent and flaky.
  *
  * Usage:  node scripts/run-newman.js [--bail] [--only=API1]
