@@ -38,25 +38,41 @@ const ORDER_FIXTURES = [
 async function main() {
   // --- users -------------------------------------------------------------
   // victim@eshop.com exists purely as the IDOR / horizontal-privilege target.
+  // `role` and the profile fields are reset explicitly, not just the credentials:
+  // API 1 is PUT /api/users/me, whose cases escalate `role` to admin (SEC-06) and
+  // NULL out shipping_address / phone via a partial update. Leaving either behind
+  // would make the next collection's authorization results meaningless.
   const users = [
-    ["Test User", "test@eshop.com", "Test1234!", "user"],
-    ["Victim User", "victim@eshop.com", "Victim123!", "user"],
-    ["Admin User", "admin@eshop.com", "Admin123!", "admin"],
+    ["Test User", "test@eshop.com", "Test1234!", "user", "123 Le Loi, Q1, TP.HCM", "0912345678"],
+    ["Victim User", "victim@eshop.com", "Victim123!", "user", "456 Hai Ba Trung, Q3, TP.HCM", "0987654321"],
+    ["Admin User", "admin@eshop.com", "Admin123!", "admin", "789 Nguyen Hue, Q1, TP.HCM", "0901112223"],
   ];
-  for (const [name, email, password, role] of users) {
+  for (const [name, email, password, role, address, phone] of users) {
     const existing = await get("SELECT id FROM users WHERE email = ?", [email]);
     if (existing) {
       await run(
-        "UPDATE users SET name=?, password=?, role=?, login_attempts=0, locked_until=NULL, reset_token=NULL WHERE id=?",
-        [name, password, role, existing.id],
+        "UPDATE users SET name=?, password=?, role=?, shipping_address=?, phone=?, login_attempts=0, locked_until=NULL, reset_token=NULL WHERE id=?",
+        [name, password, role, address, phone, existing.id],
       );
     } else {
       await run(
-        "INSERT INTO users (name, email, password, role, login_attempts) VALUES (?,?,?,?,0)",
-        [name, email, password, role],
+        "INSERT INTO users (name, email, password, role, shipping_address, phone, login_attempts) VALUES (?,?,?,?,?,?,0)",
+        [name, email, password, role, address, phone],
       );
     }
   }
+
+  // Drop every account the fixtures do not own. POST /api/register accepts anything
+  // (no validation at all), so any setup step or exploratory case that creates an
+  // account leaves a row behind. run-newman.js reseeds between collections WITHOUT
+  // restarting the server, so junk rows would otherwise accumulate across a session.
+  const keep = users.map(([, email]) => email);
+  const placeholders = keep.map(() => "?").join(",");
+  const purged = await run(
+    `DELETE FROM users WHERE email IS NULL OR email NOT IN (${placeholders})`,
+    keep,
+  );
+  if (purged.changes > 0) console.log(`Purged ${purged.changes} test-created account(s).`);
 
   const tester = await get("SELECT id FROM users WHERE email = ?", ["test@eshop.com"]);
   const victim = await get("SELECT id FROM users WHERE email = ?", ["victim@eshop.com"]);

@@ -24,9 +24,12 @@ const args = process.argv.slice(2);
 const only = (args.find((a) => a.startsWith("--only=")) || "").split("=")[1];
 const bail = args.includes("--bail");
 
-// Optional per-collection data file for the data-driven (Collection Runner) requirement.
+// Optional data file per API, for the data-driven (Collection Runner) requirement.
+// Keyed by the API prefix rather than the full filename so renaming a collection
+// does not silently drop its data file and turn 12 iterations into 1.
 const DATA_FILES = {
-  "API2-ApplyCoupon": path.join(root, "postman", "data", "coupon-cases.csv"),
+  API1: path.join(root, "postman", "data", "phone-cases.csv"),
+  API2: path.join(root, "postman", "data", "coupon-cases.csv"),
 };
 
 fs.mkdirSync(reportsDir, { recursive: true });
@@ -72,7 +75,7 @@ for (const file of collections) {
     path.join(reportsDir, `${slug}.json`),
   ];
 
-  const data = DATA_FILES[name];
+  const data = DATA_FILES[name.split("-")[0]];
   if (data && fs.existsSync(data)) argv.push("-d", data);
 
   try {

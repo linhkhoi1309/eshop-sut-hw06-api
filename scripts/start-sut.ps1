@@ -21,9 +21,12 @@ if (Test-Path $pidFile) {
   Remove-Item $pidFile -Force
 }
 
+# Deliberately NOT -NoNewWindow: that makes the child inherit this console's stdout
+# handle, and a Git Bash caller then blocks until the SUT exits - the script looks
+# like it hung. Its own window keeps it fully detached; output still goes to the log.
 $proc = Start-Process -FilePath "node" `
   -ArgumentList (Join-Path $root "sut\backend\server.js") `
-  -WorkingDirectory $root -PassThru -NoNewWindow `
+  -WorkingDirectory $root -PassThru -WindowStyle Hidden `
   -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err"
 $proc.Id | Out-File -FilePath $pidFile -Encoding ascii
 

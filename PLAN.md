@@ -26,34 +26,54 @@
 
 | Pool | FR | Endpoint | Why this one |
 |---|---|---|---|
-| **A** | FR-02 | `POST /api/login` | Densest single endpoint for domain partitions (email format, password), the lockout **state machine**, and four SEC requirements at once (SEC-01 plaintext, SEC-02 JWT, SEC-05 injection). |
+| **A** | FR-04 | `PUT /api/users/me` | FR-04 states a **numeric format rule** for `phone` (starts with `0`, 10–11 digits) — an exact boundary surface — and states **verbatim** that a user "cannot change their own `role`", which makes SEC-06 an unambiguous oracle rather than an inference. Also the only Pool A endpoint that is authenticated, so it carries a real authorization surface. |
 | **B** | FR-09 | `POST /api/apply-coupon` | Five stated business conditions C1–C5 with an explicit discount **formula** and an explicit `>=` threshold — the richest partition/boundary surface in the SUT, plus an unauthenticated `user_id` in the body (IDOR). |
 | **C** | FR-18 | `PUT /api/admin/orders/:id/status` | The FR-10 **order state machine** directly (5 states, final-state rules) plus vertical privilege escalation on an `/api/admin/` route (SEC-03). |
 
-Between them these three cover all four mandated dimensions — partitions, state transitions, security, schema — without any one endpoint carrying a dimension alone. HW05 used `GET /api/products`, `POST /api/forgot-password` and `PUT /api/orders/:id/cancel`, so there is no overlap with my own prior work either.
+Between them these three cover all four mandated dimensions — partitions, state transitions, security, schema — without any one endpoint carrying a dimension alone. They also form **one coherent attack chain**: API 1's SEC-06 defect promotes a plain user to admin, which is exactly the token API 3's SEC-03 cases need. That chain is the narrative spine of the report.
 
-**Open item:** §5 also forbids duplication *within the group*. I cannot verify that from here — confirm the trio with groupmates before the generation step starts, since changing an API afterwards invalidates that API's whole pipeline.
+`POST /api/login` was the original Pool A pick and was dropped — it is a groupmate's endpoint (§5 forbids duplication within the group). HW05 used `GET /api/products`, `POST /api/forgot-password` and `PUT /api/orders/:id/cancel`, so there is no overlap with my own prior work either.
+
+**Open item:** confirm the final trio with groupmates **before** generation starts. One collision has already cost a re-plan; a second discovered after generation would cost that API's whole pipeline.
 
 ---
 
 ## 1. Grounded facts about the SUT — verified by reading the source, do not re-derive
 
-Line references are into `sut/backend/`. These decide whether the suite is reproducible and where the defects are.
+Line references are into `sut/backend/`. These decide whether the suite is reproducible and where the defects are. Facts marked **[✓ reproduced]** were confirmed with live requests against the running SUT during planning, not merely read off the source.
+
+**Harness-critical**
 
 1. **Starting the server wipes the database.** `server.js:4` requires `./database`; `database.js:117` calls `initDatabase()` at module load, which DROPs and re-seeds every table. **Seed only after the server is listening** — `scripts/start-sut.ps1` and the CI job both enforce start → wait → seed.
-2. **Lockout trips on the *second* wrong password, not the third.** `server.js:54` does `login_attempts + 2` and `:56` locks at `>= 3` for **180 s** (`:57`). The spec (README FR-02) says increment by **exactly 1** and lock for **30 s**. Three separate defects in one branch — and operationally, any negative login case poisons every later case needing that account, hence `scripts/reset-lockout.js`.
-3. **Login returns the entire user row, password included.** `server.js:52` — `res.json({ message, token, user })` where `user` is `SELECT *`. Direct SEC-01 violation and an S5 absence-assertion target.
-4. **Passwords are stored in plaintext.** `database.js:92-93`, `server.js:23` — no hashing anywhere. SEC-01.
-5. **The percent discount formula is wrong.** `server.js:399-401` (and the duplicated no-`user_id` branch at `:419-421`) computes `total_amount * (1 - discount_value)`. Spec says `total × discount_value / 100`. For `SAVE10` on 500,000 ₫: spec → discount 50,000, final 450,000; implementation → `500000 * (1-10)` = −4,500,000, so `final_amount` = **5,000,000**, i.e. the "discount" multiplies the bill by ten.
-6. **The coupon threshold is `>` where the spec says `>=`.** `server.js:379` — `total_amount > coupon.min_order_amount`. An order of exactly 300,000 ₫ with `SAVE10` is rejected. Classic exact-boundary defect; only a case sitting *on* the threshold catches it.
-7. **`/api/apply-coupon` requires no authentication at all.** `server.js:363` has no `authenticateToken`, and `user_id` arrives **in the request body**. Violates FR-09 C4 and SEC-02: the per-user usage limit (C5) is bypassed by omitting `user_id`, and another user's quota is consumable by passing their id.
-8. **No `/api/admin/*` route checks `role`.** `authenticateToken` (`server.js:100-110`) only verifies the signature and sets `req.user`. `server.js:525` (order status), `:494` (list users), `:504` (delete user) accept **any** valid token. Direct SEC-03 violation — a plain user can drive the whole order state machine.
-9. **`canceled → delivered` is explicitly allowed.** `server.js:550-551`. The spec calls `canceled` and `delivered` final states with no outgoing transitions. Planted defect, and the exact case an AI that reads the forward-drawn diagram will not generate.
-10. **`PUT /api/users/me` accepts `role` from the client.** `server.js:118-127` appends `role = ?` when the body contains it. SEC-06 violation and a full privilege-escalation chain: register → self-promote to admin → drive admin routes. (Not one of my three APIs, but it is the mechanism that makes the API-3 escalation cases trivially reachable, and it is a reportable bug.)
-11. **`GET /api/orders/:id` has no `authenticateToken` at all** (`server.js:344`) — unauthenticated IDOR on order detail. Supporting evidence for the API-3 bug report.
-12. **JWT has no expiry** (`server.js:51`, no `expiresIn`) and the secret is hard-coded (`server.js:9`). A token minted at t=0 is valid for the whole run — convenient for the suite, reportable as a finding.
-13. **Product search interpolates SQL directly** — `LIKE '%${searchQuery}%'` (`server.js:144`). SEC-05 violation. Login itself *is* parameterised (`server.js:35`), so the API-1 injection cases are expected to be **negative results** — worth stating explicitly in the report rather than quietly omitting.
-14. **Error paths ignore the `err` argument** in several handlers (`server.js:372`, `:504`, `:510`), so a DB error surfaces as a 200 with `undefined` fields rather than a 500.
+2. **Lockout trips on the *second* wrong password, not the third.** `server.js:54` does `login_attempts + 2` and `:56` locks at `>= 3` for **180 s** (`:57`), against README FR-02's "increment by exactly 1, lock 30 s". Login is a groupmate's endpoint so this is not a finding I report — but every collection logs in to get a token, so one mistyped credential in a setup step locks the account for three minutes. Hence `scripts/reset-lockout.js`.
+3. **`POST /api/register` accepts literally anything** — no format, uniqueness, or complexity checks; an empty body `{}` creates a NULL/NULL row. **[✓ reproduced]** Not my API either, but it means any account-creating step leaves junk behind, which is why `seed-api-data.js` purges non-fixture users.
+
+**API 1 — `PUT /api/users/me` (FR-04)**
+
+4. **The client can set its own `role`.** `server.js:118-127` appends `role = ?` to the UPDATE whenever the body carries it. **[✓ reproduced]** — a plain user sent `{"role":"admin"}` and `GET /api/users/me` then returned `role: admin`. Flat SEC-06 violation, and FR-04 states the rule verbatim, so there is no interpretive wiggle room. This is also the key that unlocks API 3.
+5. **There is no input validation of any kind.** FR-04 requires `phone` to start with `0` and be 10–11 digits; `phone: "abc"` is accepted and persisted. **[✓ reproduced]** No length, type, or format check on `name` or `shipping_address` either.
+6. **A partial update silently destroys data.** The UPDATE always writes all three columns (`server.js:120-121`), so omitted fields bind as NULL. Sending `{"name":"X"}` alone wiped both `shipping_address` and `phone`. **[✓ reproduced]** Data-loss defect, and the case only appears if a test omits a field rather than sending an invalid one — a partition an AI rarely generates.
+7. **`email` in the body is correctly ignored** — it is not in the UPDATE's column list, so FR-04's email-immutability rule holds. **[✓ reproduced]** A **negative** result: it belongs in the report as a rule that was tested and *passed*, not omitted.
+8. **`GET /api/users/me` returns the whole row including the plaintext password** (`server.js:112-116`, `SELECT *`). **[✓ reproduced]** The companion read endpoint for API 1's schema stage, and the natural home for the S5 **absence** assertion.
+9. **Passwords are stored in plaintext** (`database.js:92-93`, `server.js:23`) — no hashing anywhere. SEC-01.
+
+**API 2 — `POST /api/apply-coupon` (FR-09)**
+
+10. **The percent discount formula is wrong.** `server.js:399-401` (and the duplicated no-`user_id` branch at `:419-421`) computes `total_amount * (1 - discount_value)`. Spec says `total × discount_value / 100`. For `SAVE10` on 500,000 ₫: spec → discount 50,000, final 450,000; implementation → `500000 * (1-10)` = −4,500,000, so `final_amount` = **5,000,000** — the "discount" multiplies the bill by ten.
+11. **The threshold is `>` where the spec says `>=`.** `server.js:379` — an order of exactly 300,000 ₫ with `SAVE10` is rejected. Only a case sitting *on* the threshold catches it.
+12. **No authentication at all.** `server.js:363` has no `authenticateToken`, and `user_id` arrives **in the request body**. Violates FR-09 C4 and SEC-02: the per-user limit (C5) is bypassed by omitting `user_id`, and another user's quota is consumable by passing their id.
+
+**API 3 — `PUT /api/admin/orders/:id/status` (FR-18)**
+
+13. **No `/api/admin/*` route checks `role`.** `authenticateToken` (`server.js:100-110`) only verifies the signature and sets `req.user`. `server.js:525` (order status), `:494` (list users), `:504` (delete user) accept **any** valid token. SEC-03 violation — and combined with fact 4, a brand-new user reaches full admin in two requests.
+14. **`canceled → delivered` is explicitly allowed.** `server.js:550-551`. The spec calls `canceled` and `delivered` final states with no outgoing transitions. Planted defect, and exactly the case an AI reading the forward-drawn diagram will not generate.
+15. **`GET /api/orders/:id` has no `authenticateToken` at all** (`server.js:344`) — unauthenticated IDOR on order detail.
+
+**Cross-cutting**
+
+16. **JWT has no expiry** (`server.js:51`, no `expiresIn`) and the secret is hard-coded (`server.js:9`). A token minted at t=0 is valid for the whole run — convenient for the suite, reportable as a finding.
+17. **SQL injection exists, but not on my endpoints.** `server.js:144` interpolates the product search term directly. The three chosen endpoints all use parameterised queries, so their SEC-05 injection cases are expected to be **negative results** — state that explicitly rather than quietly dropping the cases.
+18. **Error paths ignore the `err` argument** in several handlers (`server.js:372`, `:504`, `:510`), so a DB error surfaces as a 200 with `undefined` fields rather than a 500.
 
 Seeded fixture IDs (deterministic, asserted by the smoke run): tester `id=2` orders **1–5**, victim `id=3` orders **6–10**, one per state in `pending, confirmed, shipping, delivered, canceled`.
 
@@ -65,9 +85,9 @@ Seeded fixture IDs (deterministic, asserted by the smoke run): tester `id=2` ord
 |---|---|---|
 | SUT working copy + deps | `sut/backend/` | `npm ci` clean, sqlite3 native build OK |
 | Start / wait / stop | `scripts/start-sut.ps1`, `wait-for-sut.js`, `stop-sut.ps1` | SUT ready in <1 s, pid tracked |
-| Deterministic fixtures | `scripts/seed-api-data.js` | 3 users, 10 orders (one per state × 2 owners), coupon_usage cleared |
+| Deterministic fixtures | `scripts/seed-api-data.js` | 3 users (profile fields + `role` reset, non-fixture accounts purged), 10 orders — one per state × 2 owners, coupon_usage cleared |
 | Lockout reset | `scripts/reset-lockout.js` | — |
-| Postman environment | `postman/environments/local.postman_environment.json` | 24 variables, resolves under Newman |
+| Postman environment | `postman/environments/local.postman_environment.json` | 27 variables, resolves under Newman |
 | Harness smoke collection | `postman/collections/_harness-smoke.postman_collection.json` | **3 requests / 9 assertions / 0 failures** |
 | Reseeding multi-collection runner | `scripts/run-newman.js` | Correctly reports "no graded collections yet" |
 | CI/CD pipeline | `.github/workflows/api-tests.yml` | Written; first run happens at §3 step T0 |
@@ -83,10 +103,10 @@ The `X-Student-Id: 23127396` header is set by a collection-level pre-request scr
 |---|---|---|---|
 | **T0** | Push repo, run the pipeline once on the smoke collection to prove CI is wired | Actions run URL | `chore: environment, skills and CI pipeline` |
 | **T1** | Confirm API trio with groupmates (§5 non-duplication) | note in `report.md` | — |
-| **A1-G** | API 1 `POST /api/login` — generate via the 6 stages of `api-testcase-generator` | `docs/api1-login/generated.md` (**≥35**) | `feat(api1): AI-generated test cases (stages S1-S6)` |
-| **A1-A** | Audit: VALID / INVALID / INCOMPLETE + corrections | `docs/api1-login/audit.md` | `docs(api1): human audit of generated cases` |
-| **A1-E** | Extend: ≥5 human cases + why the AI missed each | `docs/api1-login/extended.md` | `feat(api1): human-added cases the AI missed` |
-| **A1-X** | Build + run the collection | `postman/collections/API1-Login...json`, `reports/api1-login.html` | `test(api1): Postman collection and Newman run` |
+| **A1-G** | API 1 `PUT /api/users/me` — generate via the 6 stages of `api-testcase-generator` | `docs/api1-users-me/generated.md` (**≥35**) | `feat(api1): AI-generated test cases (stages S1-S6)` |
+| **A1-A** | Audit: VALID / INVALID / INCOMPLETE + corrections | `docs/api1-users-me/audit.md` | `docs(api1): human audit of generated cases` |
+| **A1-E** | Extend: ≥5 human cases + why the AI missed each | `docs/api1-users-me/extended.md` | `feat(api1): human-added cases the AI missed` |
+| **A1-X** | Build + run the collection | `postman/collections/API1-UsersMe...json`, `reports/api1-usersme.html` | `test(api1): Postman collection and Newman run` |
 | **A2-\*** | Same four steps for `POST /api/apply-coupon`, plus the **data-driven** CSV run (`postman/data/coupon-cases.csv`) | `docs/api2-apply-coupon/*`, `reports/api2-...html` | `…(api2): …` |
 | **A3-\*** | Same four steps for `PUT /api/admin/orders/:id/status`; S3 carries the full 5×5 transition matrix | `docs/api3-admin-order-status/*` | `…(api3): …` |
 | **B** | File every confirmed bug as a GitHub Issue with a screenshot; mirror into `bug-report.md` | `bug-report.md`, `evidence/bug-*.png` | `docs: bug reports and GitHub issues` |
@@ -102,15 +122,17 @@ The `X-Student-Id: 23127396` header is set by a collection-level pre-request scr
 
 ## 4. Target coverage per API (≥35 each, §6.1)
 
-| Stage | API 1 login | API 2 apply-coupon | API 3 admin order status |
+| Stage | API 1 `PUT /api/users/me` | API 2 apply-coupon | API 3 admin order status |
 |---|---|---|---|
-| S2 domain partitions | ~16 (email format ×6, password ×5, missing/type/case-sensitivity ×5) | ~14 (`code`, `total_amount` incl. the exact 300k/500k thresholds, `user_id`, types) | ~8 (`status` enum incl. unknown/empty/case, `:id` non-numeric/absent/huge) |
-| S3 state transitions | ~7 (attempt counter 0→1→2, lock, 180 s expiry, reset on success) | ~5 (usage count vs `max_uses_per_user`, incl. exactly-at-limit) | **~25** (full 5×5 matrix + the two final states) |
-| S4 security | ~8 (SEC-01 ×2, SEC-02, SEC-05 injection ×4, enumeration via error-message diff) | ~7 (SEC-02 no-auth, IDOR via body `user_id`, quota bypass by omission, injection on `code`) | ~9 (SEC-03 user token, no token, malformed token, cross-user, escalation chain via SEC-06) |
-| S5 schema | ~6 (token shape, `user` object, **absence** of `password`, error shape) | ~6 (`discount_amount`/`final_amount` types and sign, `success`, error shape) | ~5 (message shape, 400/404 error shape, no state leak) |
-| **Total** | **~37** | **~32 + ≥5 extended** | **~47** |
+| S2 domain partitions | **~18** — `phone` ×9 (9/10/11/12 digits, leading `0` vs not, `+84` form, letters, empty, symbols), `name` ×4 (empty, 1 char, very long, unicode/emoji), `shipping_address` ×3, plus omitted-field and wrong-type cases | ~14 (`code`, `total_amount` incl. the exact 300k/500k thresholds, `user_id`, types) | ~8 (`status` enum incl. unknown/empty/case, `:id` non-numeric/absent/huge) |
+| S3 state transitions | ~6 — the **privilege state** `user → admin → user` (does a stale token keep the old claim?), and the **profile-completeness state** set → partial-update → wiped → restored | ~5 (usage count vs `max_uses_per_user`, incl. exactly-at-limit) | **~25** (full 5×5 matrix + the two final states) |
+| S4 security | ~10 — SEC-06 `role` mass assignment (the flagship), `email` immutability, `id`/`password`/`login_attempts` mass assignment, SEC-02 (absent/malformed/other-user token), cross-user write attempt, SEC-04 XSS payload persisted in `name` | ~7 (SEC-02 no-auth, IDOR via body `user_id`, quota bypass by omission, injection on `code`) | ~9 (SEC-03 user token, no token, malformed token, cross-user, escalation chain via SEC-06) |
+| S5 schema | ~6 — response shape `{message}`, error shape, and on the companion `GET /api/users/me` the **absence** of `password`, `reset_token`, `login_attempts` | ~6 (`discount_amount`/`final_amount` types and sign, `success`, error shape) | ~5 (message shape, 400/404 error shape, no state leak) |
+| **Total** | **~40** | **~32 + ≥5 extended** | **~47** |
 
 API 2 lands closest to the floor; its data-driven CSV run is where the extra rows come from.
+
+Two notes on API 1's shape. Its S2 count is high and its S3 count is low, which is honest rather than convenient — FR-04 is a validation-heavy endpoint with only a shallow state model, and API 3 carries the state-transition dimension for the suite. And the `phone` rule is the single best boundary surface in the SUT: FR-04 gives an exact numeric range (10–11 digits) *and* a prefix rule, so 9/10/11/12-digit values with and without the leading `0` are all derivable from the spec rather than invented.
 
 ---
 
@@ -120,17 +142,22 @@ Ordered by severity. Every one traces to a numbered fact in §1.
 
 | # | Fact | API | Severity | Requirement violated |
 |---|---|---|---|---|
-| BUG-01 | §1.5 percent discount inverted — a 10% coupon multiplies the total ~10× | 2 | **Critical** | FR-09 formula |
-| BUG-02 | §1.8 no `role` check on `/api/admin/*` — any user drives the order state machine | 3 | **Critical** | SEC-03, FR-12 |
-| BUG-03 | §1.10 `PUT /api/users/me` accepts `role` — self-promotion to admin | — | **Critical** | SEC-06 |
-| BUG-04 | §1.3 + §1.4 plaintext passwords, returned in the login response | 1 | **Critical** | SEC-01 |
-| BUG-05 | §1.9 `canceled → delivered` accepted | 3 | High | FR-10 final states |
-| BUG-06 | §1.7 `apply-coupon` unauthenticated; per-user quota bypassed | 2 | High | FR-09 C4/C5, SEC-02 |
-| BUG-07 | §1.11 `GET /api/orders/:id` unauthenticated IDOR | 3 | High | SEC-02 |
-| BUG-08 | §1.2 lockout after 2 failures, not 3; 180 s not 30 s | 1 | Medium | FR-02 |
-| BUG-09 | §1.6 coupon threshold `>` instead of `>=` | 2 | Medium | FR-09 C3 |
-| BUG-10 | §1.12 JWT never expires, hard-coded secret | 1 | Medium | SEC-02 |
-| BUG-11 | §1.14 swallowed DB errors return 200 with `undefined` fields | 2,3 | Low | — |
+| BUG-01 | §1.4 `PUT /api/users/me` accepts `role` — self-promotion to admin **[✓ reproduced]** | 1 | **Critical** | SEC-06, FR-04 |
+| BUG-02 | §1.13 no `role` check on `/api/admin/*` — any user drives the order state machine | 3 | **Critical** | SEC-03, FR-12 |
+| BUG-03 | §1.10 percent discount inverted — a 10% coupon multiplies the total ~10× | 2 | **Critical** | FR-09 formula |
+| BUG-04 | §1.8 + §1.9 plaintext passwords, returned by `GET /api/users/me` **[✓ reproduced]** | 1 | **Critical** | SEC-01 |
+| BUG-05 | §1.14 `canceled → delivered` accepted | 3 | High | FR-10 final states |
+| BUG-06 | §1.12 `apply-coupon` unauthenticated; per-user quota bypassed | 2 | High | FR-09 C4/C5, SEC-02 |
+| BUG-07 | §1.15 `GET /api/orders/:id` unauthenticated IDOR | 3 | High | SEC-02 |
+| BUG-08 | §1.6 partial update silently NULLs `shipping_address` and `phone` **[✓ reproduced]** | 1 | High | FR-04 (data loss) |
+| BUG-09 | §1.5 no validation on `phone` / `name` / `shipping_address` — `"abc"` accepted as a phone **[✓ reproduced]** | 1 | Medium | FR-04 phone format |
+| BUG-10 | §1.11 coupon threshold `>` instead of `>=` | 2 | Medium | FR-09 C3 |
+| BUG-11 | §1.16 JWT never expires, hard-coded secret | 1,3 | Medium | SEC-02 |
+| BUG-12 | §1.18 swallowed DB errors return 200 with `undefined` fields | 2,3 | Low | — |
+
+Note the chain BUG-01 → BUG-02: a brand-new account reaches full admin in two requests. Reported as one escalation path with two component defects, not as two unrelated tickets — the severity is in the composition.
+
+**Not bugs, reported as tested-and-passed negative results:** `email` is correctly rejected as a mutable field (§1.7), and the three chosen endpoints are all parameterised against SQL injection (§1.17). Both were tested; saying so is worth more than silently dropping the cases.
 
 ---
 
@@ -142,14 +169,14 @@ Planned, with where each will actually be used — a feature list without a use 
 |---|---|
 | Workspace | One HW06 workspace holding all three collections |
 | Collections + folders | One per API, foldered by generation stage S2–S5 |
-| Environment | `EShop Local (HW06)`, 24 variables, secrets typed as `secret` |
+| Environment | `EShop Local (HW06)`, 27 variables, secrets typed as `secret` |
 | Collection variables | Static per-API constants that must not vary by environment |
 | Pre-request scripts | Collection-level `X-Student-Id`; request-level token acquisition |
 | Test scripts + chai assertions | One `pm.test` per assertion, named by case ID |
-| Dynamic variables | `{{$randomEmail}}`, `{{$timestamp}}` for uniqueness in registration setup |
-| **Data-driven run** | `postman/data/coupon-cases.csv` through the Collection Runner / `newman -d` (API 2) |
+| Dynamic variables | `{{$randomFullName}}`, `{{$timestamp}}` to keep API 1's profile writes distinguishable between runs |
+| **Data-driven runs** | `postman/data/phone-cases.csv` (API 1 — the 9/10/11/12-digit × leading-`0` matrix is a natural table) and `postman/data/coupon-cases.csv` (API 2), through the Collection Runner / `newman -d` |
 | Newman CLI + htmlextra | `scripts/run-newman.js` |
-| **Mock server** | A mock of `apply-coupon` returning the **spec-correct** response, to demonstrate the assertions pass against a correct implementation and that BUG-01 is in the SUT, not in my test |
+| **Mock server** | A mock of `apply-coupon` returning the **spec-correct** response, to demonstrate the assertions pass against a correct implementation and that BUG-03 is in the SUT, not in my test |
 | **Monitor** | Scheduled run of a small health subset against the mock (the local SUT is not reachable from Postman cloud — this limitation gets stated, not hidden) |
 | Newman in CI | `.github/workflows/api-tests.yml` |
 
@@ -159,7 +186,7 @@ Planned, with where each will actually be used — a feature list without a use 
 
 | Risk | Mitigation |
 |---|---|
-| Group-duplicate API selection (§5) | Confirm at step T1, **before** generation — a late change costs a full API pipeline |
+| Group-duplicate API selection (§5) — **already hit once** on `POST /api/login` | Re-confirm all three at step T1, **before** generation. The cost so far was a re-plan; after generation it would be a full API pipeline |
 | Lockout poisoning later cases | Reseed between collections (`run-newman.js`); `reset-lockout.js` for ad-hoc runs |
 | "Green pipeline" achieved by weakening assertions | Known-defect cases quarantined into a folder CI excludes, and named in the CI report |
 | Monitor/mock need a Postman cloud account and cannot reach `localhost` | Mock covers a spec-correct `apply-coupon`; monitor targets the mock; the limitation is documented |
