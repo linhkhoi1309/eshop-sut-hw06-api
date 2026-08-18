@@ -60,8 +60,21 @@ per-collection request/assertion/failed-count table and an explanatory note poin
 
 | Run | Commit | Result | Link |
 |---|---|---|---|
-| All API test cases passing (known defects quarantined) | _pending push_ | 🟢 green | _pending_ |
-| One test case deliberately failing (unquarantined) | _pending push_ | 🔴 red | _pending_ |
+| All API test cases passing (known defects quarantined) | [`a6c3e0f`](https://github.com/linhkhoi1309/eshop-sut-hw06-api/commit/a6c3e0f) "ci: full API suite passing" | 🟢 green | [Run 32123101092](https://github.com/linhkhoi1309/eshop-sut-hw06-api/actions/runs/32123101092) (34s) |
+| One test case deliberately failing (unquarantined) | [`ff425eb`](https://github.com/linhkhoi1309/eshop-sut-hw06-api/commit/ff425eb) "test: deliberate failing case for CI evidence (HW06 §6)" | 🔴 red | [Run 32123317185](https://github.com/linhkhoi1309/eshop-sut-hw06-api/actions/runs/32123317185) (31s) |
+| Revert — restores the green baseline | [`2fc5e7d`](https://github.com/linhkhoi1309/eshop-sut-hw06-api/commit/2fc5e7d) "revert: restore correct expectation" | 🟢 green | [Run 32123424684](https://github.com/linhkhoi1309/eshop-sut-hw06-api/actions/runs/32123424684) (33s) |
 
-_This table is filled in once the corresponding commits are pushed and their Actions runs complete —
-see `PLAN.md` steps C1–C3._
+Screenshots: [`evidence/ci-c1-green-run-header.jpg`](../evidence/ci-c1-green-run-header.jpg) +
+[`evidence/ci-c1-green-run-summary.jpg`](../evidence/ci-c1-green-run-summary.jpg) for the green run;
+[`evidence/ci-c2-red-run-header.jpg`](../evidence/ci-c2-red-run-header.jpg) +
+[`evidence/ci-c2-red-run-summary.jpg`](../evidence/ci-c2-red-run-summary.jpg) for the red run. Each
+pair captures the run header (status, duration) and the job-summary table underneath it — note
+`api1-usersme`'s **Failed** column goes from 19 (green) to 20 (red), the one deliberately broken
+assertion.
+
+The deliberate failure (`ff425eb`) flipped exactly one assertion — `A1-S2-01`'s expected status from
+200 to 201, on a request the SUT genuinely (and correctly) answers with 200 — so the mismatch is a
+one-line, reviewable diff, and it is **not** listed in `postman/known-defects.json`. The CI run
+correctly went red on it (`Run graded collections` step failed, job exit code 1), confirming the
+quarantine mechanism only shields *documented* defects and still fails the build on a real
+regression. The revert commit is a byte-for-byte inverse of the flip.
