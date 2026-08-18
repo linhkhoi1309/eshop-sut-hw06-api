@@ -10,8 +10,16 @@
  * A single Newman invocation over all three would therefore be order-dependent and flaky.
  *
  * Usage:  node scripts/run-newman.js [--bail] [--only=API1]
- * Exit code is non-zero if any collection had a failure - this is what makes the
- * GitHub Actions job red for the "one failing test case" sample commit.
+ *
+ * Quarantine (HW06 §6 / PLAN.md C1): most collections deliberately assert spec-correct
+ * behaviour against a confirmed SUT defect, so Newman's own exit code is nonzero on
+ * every normal run - that alone can't drive the CI gate. Instead: after each collection
+ * runs, its JSON report is parsed for which case IDs actually failed, and compared
+ * against postman/known-defects.json. A collection PASSES the gate iff every failing
+ * case ID is listed there for that collection; any *unlisted* failure still fails the
+ * build. This is the quarantine mechanism - it never edits or skips a test case (that
+ * would delete the finding), it only decides whether an already-documented failure is
+ * allowed to keep the build green.
  */
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -39,6 +47,25 @@ const DATA_FILES = {
 };
 
 fs.mkdirSync(reportsDir, { recursive: true });
+
+const knownDefectsPath = path.join(root, "postman", "known-defects.json");
+const KNOWN_DEFECTS = fs.existsSync(knownDefectsPath) ? JSON.parse(fs.readFileSync(knownDefectsPath, "utf8")) : {};
+
+// Pulls the leading case ID (e.g. "A2-S4-03" out of "A2-S4-03 status 400 (...)")
+// off each failing assertion's name, so it can be matched against known-defects.json.
+function extractFailedCaseIds(reportJsonPath) {
+  if (!fs.existsSync(reportJsonPath)) return new Set();
+  const report = JSON.parse(fs.readFileSync(reportJsonPath, "utf8"));
+  const failed = new Set();
+  for (const exec of report.run.executions || []) {
+    for (const a of exec.assertions || []) {
+      if (!a.error) continue;
+      const m = /^([A-Za-z0-9]+-[A-Za-z0-9]+-[A-Za-z0-9]+)/.exec(a.assertion || "");
+      failed.add(m ? m[1] : a.assertion);
+    }
+  }
+  return failed;
+}
 
 const collections = fs
   .readdirSync(collectionsDir)
@@ -84,6 +111,7 @@ for (const file of collections) {
   const data = DATA_FILES[name];
   if (data && fs.existsSync(data)) argv.push("-d", data);
 
+  let newmanFailed = false;
   try {
     // shell: true is required on Windows - execFileSync spawning a .cmd shim directly
     // throws EINVAL (a Node/Windows quirk, not a real failure) without it. Harmless on
@@ -92,16 +120,45 @@ for (const file of collections) {
       stdio: "inherit",
       shell: process.platform === "win32",
     });
-    summary.push({ name, result: "PASS" });
   } catch (_) {
+    newmanFailed = true;
+  }
+
+  if (!newmanFailed) {
+    summary.push({ name, result: "PASS", quarantined: [] });
+    continue;
+  }
+
+  // Newman reported at least one failing assertion - check whether every one of them
+  // is a documented, quarantined defect for this collection, or a real regression.
+  const actualFailed = extractFailedCaseIds(path.join(reportsDir, `${slug}.json`));
+  const known = new Set(Object.keys(KNOWN_DEFECTS[name] || {}));
+  const unexpected = [...actualFailed].filter((id) => !known.has(id)).sort();
+  const notReproduced = [...known].filter((id) => !actualFailed.has(id)).sort();
+
+  if (notReproduced.length > 0) {
+    console.log(`  NOTE: previously-known defect(s) did not reproduce for ${name}: ${notReproduced.join(", ")} - update postman/known-defects.json if this is now fixed.`);
+  }
+
+  if (unexpected.length === 0) {
+    summary.push({ name, result: "PASS", quarantined: [...actualFailed].sort() });
+  } else {
     failed += 1;
-    summary.push({ name, result: "FAIL" });
+    summary.push({ name, result: "FAIL", unexpected });
     if (bail) break;
   }
 }
 
 console.log(`\n${"=".repeat(70)}\n  RUN SUMMARY\n${"=".repeat(70)}`);
-for (const s of summary) console.log(`  ${s.result.padEnd(5)} ${s.name}`);
+for (const s of summary) {
+  console.log(`  ${s.result.padEnd(5)} ${s.name}`);
+  if (s.result === "PASS" && s.quarantined && s.quarantined.length > 0) {
+    console.log(`        (${s.quarantined.length} known defect(s) quarantined: ${s.quarantined.join(", ")})`);
+  }
+  if (s.result === "FAIL" && s.unexpected) {
+    console.log(`        UNEXPECTED failure(s), not in known-defects.json: ${s.unexpected.join(", ")}`);
+  }
+}
 console.log(`\n  ${summary.length - failed}/${summary.length} collections passed.\n`);
 
 process.exit(failed > 0 ? 1 : 0);

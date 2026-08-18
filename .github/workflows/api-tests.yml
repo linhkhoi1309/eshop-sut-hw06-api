@@ -91,6 +91,11 @@ jobs:
         run: |
           echo "## Newman run - \`${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "A nonzero **Failed** count below is not itself a red build: most collections deliberately" >> "$GITHUB_STEP_SUMMARY"
+          echo "assert spec-correct behaviour against a confirmed SUT defect. \`scripts/run-newman.js\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "only fails the job if a failing case ID is **not** listed in \`postman/known-defects.json\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "(see that file, and each API's \`docs/api*/audit.md\`, for what each quarantined failure is)." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Collection | Requests | Assertions | Failed |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---:|---:|---:|" >> "$GITHUB_STEP_SUMMARY"
           for f in reports/*.json; do

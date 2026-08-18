@@ -1,0 +1,32 @@
+{
+  "_comment": "Quarantine manifest for scripts/run-newman.js. Every case ID here is a test that intentionally asserts spec-correct behaviour against a confirmed SUT defect (see docs/api*/audit.md and docs/api*/extended.md) and is therefore EXPECTED to fail. run-newman.js treats a collection as passing only if every failing assertion's case ID appears here for that collection - any failure NOT listed here still fails the build. This file is the single source of truth for 'known-defect, quarantined, documented' (PLAN.md step C1); it is derived from the actual Newman JSON reports, not guessed.",
+  "API1-UsersMe": {
+    "A1-S2-03": "BUG-09", "A1-S2-04": "BUG-09", "A1-S2-05": "BUG-09", "A1-S2-06": "BUG-09",
+    "A1-S2-07": "BUG-09", "A1-S2-08": "BUG-09", "A1-S2-09": "BUG-08", "A1-S2-14": "BUG-08",
+    "A1-S2-18": "BUG-08", "A1-S3-01b": "BUG-08", "A1-S3-03": "BUG-01", "A1-S3-04": "BUG-01",
+    "A1-S4-01": "BUG-01", "A1-S4-11": "BUG-04", "A1-S5-03": "BUG-04",
+    "A1-EX-01": "BUG-09", "A1-EX-02": "BUG-09", "A1-EX-05": "BUG-08", "A1-EX-06": "BUG-09"
+  },
+  "API1-PhoneBoundaries": {
+    "A1-D-01": "BUG-09", "A1-D-02": "BUG-09", "A1-D-04": "BUG-09",
+    "A1-D-06": "BUG-09", "A1-D-07": "BUG-09", "A1-D-08": "BUG-09"
+  },
+  "API2-ApplyCoupon": {
+    "A2-S2-01": "BUG-03", "A2-S2-08": "BUG-10", "A2-S2-10": "BUG-03",
+    "A2-S4-01": "BUG-06", "A2-S4-02": "BUG-06", "A2-S4-03": "BUG-06", "A2-S4-04": "BUG-06",
+    "A2-S5-02": "BUG-03", "A2-S5-03": "BUG-03",
+    "A2-EX-02": "BUG-06", "A2-EX-04a": "SEC-03"
+  },
+  "API2-CouponBoundaries": {
+    "A2-D-03": "BUG-10", "A2-D-08": "BUG-10", "A2-D-13": "BUG-10"
+  },
+  "API3-AdminOrderStatus": {
+    "A3-S3-15": "candidate-shipping-cancel-gap", "A3-S3-24": "BUG-05",
+    "A3-S4-03": "BUG-02", "A3-S4-04": "BUG-02",
+    "A3-EX-01c": "BUG-02", "A3-EX-01d": "BUG-02", "A3-EX-01e": "BUG-02",
+    "A3-EX-02": "BUG-02", "A3-EX-05b": "BUG-02", "A3-EX-06b": "BUG-05"
+  },
+  "API3-OrderStatusMatrix": {
+    "A3-D-15": "candidate-shipping-cancel-gap", "A3-D-24": "BUG-05"
+  }
+}
