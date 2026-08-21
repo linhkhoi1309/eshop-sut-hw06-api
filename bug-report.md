@@ -160,7 +160,7 @@ HTTP 200
 ```
 Expected 400 (`A3-S3-24 status 400` — `expected response to have status code 400 but got 200`).
 
-![BUG-05 (+06) evidence](evidence/bug-05-06-canceled-delivered-and-apply-coupon-unauth.jpg)
+![BUG-05 evidence](evidence/bug-05-canceled-delivered.jpg)
 
 ---
 
@@ -178,7 +178,9 @@ zero credentials.
 POST /api/apply-coupon
 {"code":"BIGBUY","total_amount":600000}
 ```
-Succeeds (200) with the quota check skipped entirely. See screenshot above (shared with BUG-05).
+Succeeds (200) with the quota check skipped entirely.
+
+![BUG-06 evidence](evidence/bug-06-apply-coupon-unauth.jpg)
 
 ---
 
@@ -211,7 +213,7 @@ existing value — it overwrites it with NULL.
 **Reproduction:** with a fully-populated profile, `PUT /api/users/me {"name":"X"}` (omitting
 `shipping_address`/`phone`), then `GET /api/users/me` → both omitted fields are now `null`.
 
-![BUG-08 (+09) evidence](evidence/bug-08-09-partial-update-nulls-and-no-phone-validation.jpg)
+![BUG-08 evidence](evidence/bug-08-partial-update-nulls.jpg)
 
 ---
 
@@ -223,8 +225,9 @@ FR-04 states `phone` must start with `0` and be 10-11 digits. The handler applie
 whatsoever. Confirmed across the full digit-count × leading-0 matrix (data-driven sweep, 6/8 rows
 fail against spec).
 
-**Reproduction:** `PUT /api/users/me {"phone":"012345678"}` (9 digits) → 200, persisted as-is. See
-screenshot above (shared with BUG-08).
+**Reproduction:** `PUT /api/users/me {"phone":"012345678"}` (9 digits) → 200, persisted as-is.
+
+![BUG-09 evidence](evidence/bug-09-no-phone-validation.jpg)
 
 ---
 
