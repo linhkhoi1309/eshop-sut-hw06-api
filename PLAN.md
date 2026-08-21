@@ -199,19 +199,19 @@ Planned, with where each will actually be used — a feature list without a use 
 
 | §14 item | Path | Status |
 |---|---|---|
-| Main report (MD + PDF) | `report.md`, `submission/report.pdf` | pending |
+| Main report (MD + PDF) | `report.md`, `submission/report.pdf` | **done** |
 | Public GitHub repo link | https://github.com/linhkhoi1309/eshop-sut-hw06-api | **done** |
-| Postman collections (`.json`) | `postman/collections/API{1,2,3}-*.json` | pending |
-| Newman HTML reports | `reports/*.html` | pending |
-| Postman feature list | `report.md` §Postman features | drafted in §6 above |
-| CI/CD report + 2 runs | `docs/cicd-report.md`, `evidence/ci-*.png` | pending C1/C2 |
-| Excel test cases + summary | `submission/23127396_HW06_TestCases.xlsx` | pending |
-| Generator diagram + pseudocode | `evidence/generator-diagram.png`, `generator.py`, `docs/generator-design.md` | pending D |
-| OpenAPI conversion (optional) | `docs/openapi.yaml` | optional |
-| Bug report + Issue screenshots | `bug-report.md`, `evidence/bug-*.png` | pending B |
-| AI critique + audit (MD + PDF) | `ai-critique.md`, `ai-audit-report.md` | log appended continuously |
-| Git commit log | `git-commit-log.txt` | generated at E |
-| README with self-assessment + test summary | `README.md` | pending E |
+| Postman collections (`.json`) | `postman/collections/API{1,2,3}-*.json` | **done** |
+| Newman HTML reports | `reports/*.html` | **done** |
+| Postman feature list | `report.md` §3 | **done** |
+| CI/CD report + 2 runs | `docs/cicd-report.md`, `evidence/ci-*.jpg` | **done** |
+| Excel test cases + summary | `submission/23127396_HW06_TestCases.xlsx` | **done** |
+| Generator diagram + pseudocode | `evidence/generator-diagram.png`, `generator.py`, `docs/generator-design.md` | pseudocode + design **done**; diagram **still pending — must be hand-drawn, not AI** |
+| OpenAPI conversion (optional) | `docs/openapi.yaml` | skipped (optional, time budget) |
+| Bug report + Issue screenshots | `bug-report.md`, `evidence/bug-*.jpg` | **done** — 16 issues filed |
+| AI critique + audit (MD + PDF) | `ai-critique.md`, `ai-audit-report.md` | **done** |
+| Git commit log | `git-commit-log.txt` | **done** |
+| README with self-assessment + test summary | `README.md` | **done** |
 
 ---
 

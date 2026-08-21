@@ -1,0 +1,30 @@
+03488da 2026-08-21 10:49:23 docs: AI test-generator design
+fe79800 2026-08-21 10:02:20 fix(evidence): retake bug screenshots so each shows its own title
+9b64f7d 2026-08-19 16:30:55 docs: bug reports and GitHub issues
+5ceb0af 2026-08-18 16:50:29 docs: fill in the C1/C2/C3 CI evidence (run URLs + screenshots)
+2fc5e7d 2026-08-18 16:47:09 revert: restore correct expectation
+ff425eb 2026-08-18 16:45:56 test: deliberate failing case for CI evidence (HW06 §6)
+a6c3e0f 2026-08-18 16:42:09 ci: full API suite passing
+e48acbb 2026-08-18 16:34:41 test(api3): data-driven full 5x5 state-transition matrix sweep
+84bd5a0 2026-08-18 16:29:45 test(api3): Postman collection and Newman run
+f5fca35 2026-08-18 16:23:31 feat(api3): human-added cases the AI missed
+53f5c71 2026-08-18 16:21:50 docs(api3): human audit of generated cases
+2d328fd 2026-08-18 16:18:17 feat(api3): AI-generated test cases (stages S1-S6)
+e2e9d3a 2026-08-18 16:10:05 test(api1): data-driven phone digit-count x leading-0 boundary sweep
+b8f0221 2026-08-18 16:04:47 test(api2): data-driven coupon threshold boundary sweep
+4d1a4aa 2026-08-18 15:57:33 test(api2): Postman collection and Newman run
+70f6ee4 2026-08-18 15:47:59 feat(api2): human-added cases the AI missed
+5ea99c1 2026-08-18 15:35:58 test(api1): Postman collection and Newman run
+400bace 2026-08-18 15:35:44 feat(api1): human-added cases the AI missed
+6e9c135 2026-08-18 15:35:39 docs(api1): human audit of generated cases
+c3f7fd6 2026-08-18 15:35:34 feat(api1): AI-generated test cases (stages S1-S6)
+9810cee 2026-08-18 15:27:20 fix(api2): raise generated case count to 38 (>=35 floor, Requirement §6)
+9a12885 2026-08-18 15:21:20 docs(api2): human audit of generated cases
+1ad188e 2026-08-18 15:13:24 feat(api2): AI-generated test cases (stages S1-S6)
+b152ca9 2026-08-18 11:57:28 docs: correct stale API1 reference in run-newman.js header
+45f4cce 2026-08-18 11:53:48 docs: record T0 - repo published and pipeline verified green
+2a43b63 2026-08-18 11:50:42 ci: gate the graded-collection step on the collections existing
+1b688f4 2026-08-18 11:49:14 plan: freeze the API trio, step T1 confirmed
+b31a81f 2026-08-18 11:21:15 plan: API 1 is PUT /api/users/me (FR-04), not POST /api/login
+15d05d3 2026-08-18 10:56:19 chore: ignore SUT stderr log
+43c22dc 2026-08-18 10:56:10 chore: environment, agent skills and CI pipeline for HW06
