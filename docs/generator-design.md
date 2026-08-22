@@ -68,6 +68,52 @@ one feedback arrow back into the CI gate:
                                                                                           EXPECTED-FAIL tags]
 ```
 
+> **This Mermaid rendering is an AI-drawn reference sketch for the student to study while hand-drawing
+> `evidence/generator-diagram.png` — it does NOT satisfy Requirement §7/§11 itself, regardless of
+> Mermaid being an accepted *format* per §14's "PNG / Mermaid" wording. §11 requires the diagram to be
+> self-drawn — the student makes the design decisions and produces it; format flexibility doesn't
+> change who has to author it. Do not export, trace, or paste this block in as the submitted diagram.**
+
+```mermaid
+flowchart TD
+    Spec["API Specification"]
+
+    subgraph LLM["LLM-generated (6 stages, one prompt each)"]
+        direction TB
+        S1["S1: Parameter Inventory"]
+        S2["S2: Domain Partitions<br/>(EP + BVA)"]
+        S3["S3: State Transitions<br/>(full NxN matrix)"]
+        S4["S4: Security<br/>(one case per SEC-xx, per role)"]
+        S5["S5: Schema Validation<br/>(incl. absence assertions)"]
+        S6["S6: Consolidation<br/>(dedupe, ID, prioritize)"]
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6
+    end
+
+    Spec --> S1
+    S6 -->|generated.md| Boundary
+
+    Boundary{{"HUMAN BOUNDARY<br/>hard line, never collapsed"}}
+
+    subgraph HUMAN["Human-only"]
+        direction TB
+        Audit["Human Audit<br/>label vs. 2 oracles:<br/>spec text + source line numbers"]
+        Extend["Human Extend<br/>at least 5 cases from gap categories E1-E5"]
+        Audit -->|audit.md| Extend
+    end
+
+    Boundary --> Audit
+    Extend -->|extended.md| Emit["Collection Emitter<br/>generated.md + extended.md -> Postman JSON"]
+    Emit --> Newman["Newman Execution<br/>reports/*.json"]
+    Newman --> Gate["CI Gate<br/>known-defects.json quarantine check"]
+
+    Gate -.->|"confirmed bug -> tagged EXPECTED-FAIL, never rewritten"| S3
+    Gate -.->|feeds future runs| S4
+
+    style Boundary fill:#7f1d1d,color:#fff
+    style LLM fill:#1e3a5f,color:#fff
+    style HUMAN fill:#713f12,color:#fff
+```
+
 Two design decisions worth drawing attention to (literally, as callouts on the diagram):
 
 1. **The human boundary is a hard line, not a dashed one.** Everything above it is LLM-generated;
