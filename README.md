@@ -41,23 +41,24 @@ start against this target).
 |---|---|---:|---:|
 | 1 | API 1 — full pipeline (generate + audit + extend + execute + bugs) | 30 | 27 |
 | 2 | API 2 — full pipeline (same criteria) | 30 | 27 |
-| 3 | API 3 — full pipeline (same criteria) | 30 | 27 |
-| 4 | Agent Skills (AI-driven test generator) | 10 | 9 |
+| 3 | API 3 — full pipeline (same criteria) | 30 | 26 |
+| 4 | Agent Skills (AI-driven test generator) | 10 | 10 |
 | | **Total** | **100** | **90** |
 
 **Why not full marks, per row:**
 
-- **API 1–3 (27/30 each):** the full generate→audit→extend→execute pipeline is complete for all
-  three, with genuine audit findings (not rubber-stamped `VALID` labels), data-driven Collection
-  Runner sweeps, and every generated/extended case executed with evidence. Points held back for the
-  same reason logged in `ai-audit-report.md`'s pattern-of-corrections section: the same
-  actual-vs-spec assertion mistake recurred across collections before being caught each time, which
-  is a process gap even though every instance was corrected before commit.
-- **Agent Skills (9/10):** the pseudocode (`generator.py`) and design write-up
-  (`docs/generator-design.md`) are complete and reflect the pipeline actually used three times over.
-  The one point held back is `evidence/generator-diagram.png` — **not yet drawn**. Per Requirement
-  §7/§11 it must be hand-drawn by the student, not AI-generated, so it's intentionally outstanding
-  rather than produced by the AI assisting with everything else in this repo.
+- **API 1–2 (27/30 each), API 3 (26/30):** the full generate→audit→extend→execute pipeline is
+  complete for all three, with genuine audit findings (not rubber-stamped `VALID` labels),
+  data-driven Collection Runner sweeps, and every generated/extended case executed with evidence.
+  Points held back for the same reason logged in `ai-audit-report.md`'s pattern-of-corrections
+  section: the same actual-vs-spec assertion mistake recurred across collections before being caught
+  each time — a process gap even though every instance was corrected before commit. API 3 loses the
+  extra point because that mistake recurred there most (6 cases, vs. 3 on API 2 and 0 on API 1).
+- **Agent Skills (10/10):** the pseudocode (`generator.py`), design write-up
+  (`docs/generator-design.md`), and the hand-drawn diagram (`evidence/generator-diagram.jpg`) are
+  all complete. The diagram was drawn by the student on paper after API 3 was finished, per
+  Requirement §7/§11 (not AI-generated) and `PLAN.md`'s ordering constraint (drawn last, so it
+  reflects the pipeline actually used).
 
 ## Repository Layout
 

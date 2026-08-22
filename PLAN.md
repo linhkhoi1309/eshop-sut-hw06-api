@@ -206,7 +206,7 @@ Planned, with where each will actually be used — a feature list without a use 
 | Postman feature list | `report.md` §3 | **done** |
 | CI/CD report + 2 runs | `docs/cicd-report.md`, `evidence/ci-*.jpg` | **done** |
 | Excel test cases + summary | `submission/23127396_HW06_TestCases.xlsx` | **done** |
-| Generator diagram + pseudocode | `evidence/generator-diagram.png`, `generator.py`, `docs/generator-design.md` | pseudocode + design **done**; diagram **still pending — must be hand-drawn, not AI** |
+| Generator diagram + pseudocode | `evidence/generator-diagram.jpg`, `generator.py`, `docs/generator-design.md` | **done** — hand-drawn by student 2026-08-22, embedded in `docs/generator-design.md` |
 | OpenAPI conversion (optional) | `docs/openapi.yaml` | skipped (optional, time budget) |
 | Bug report + Issue screenshots | `bug-report.md`, `evidence/bug-*.jpg` | **done** — 16 issues filed |
 | AI critique + audit (MD + PDF) | `ai-critique.md`, `ai-audit-report.md` | **done** |

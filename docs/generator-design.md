@@ -2,13 +2,19 @@
 
 **Student:** 23127396 · **Requirement:** §7 (Create/G9.5), §11 (anti-AI-cheat)
 
-> **On the diagram:** `evidence/generator-diagram.png` must be hand-drawn — §11 states it explicitly
-> and TAs verify it. This document describes what the diagram should depict (derived from the
-> six-stage pipeline actually used across all three APIs in this submission, per `PLAN.md`'s own
-> ordering constraint: "draw it after A3, so it describes the pipeline actually used, not an
-> idealised one") so the drawing reflects real, already-executed design decisions rather than an
-> invented one. The pseudocode below (`generator.py`) is AI-assisted, which is declared in the AI
-> Audit Report — only the diagram carries the "not AI-generated" constraint.
+> **On the diagram:** `evidence/generator-diagram.jpg` is hand-drawn by the student — §11 requires
+> this explicitly and TAs verify it. The pseudocode below (`generator.py`) is AI-assisted, which is
+> declared in the AI Audit Report — only the diagram carries the "not AI-generated" constraint, and
+> only the diagram below satisfies it (the Mermaid rendering further down this file is an AI-drawn
+> reference sketch and does not).
+
+![Hand-drawn generator pipeline diagram](../evidence/generator-diagram.jpg)
+
+*Drawn after API 3 was complete, per `PLAN.md`'s ordering constraint ("describes the pipeline
+actually used, not an idealised one"): API Specification → the six LLM-generated stages (S1–S6,
+boxed together as "LLM generated") → Human Audit → Human Extend → Collection Emitter → Newman
+Execution → CI Gate, with the feedback arrow back into S3/S4 labelled "confirmed bug → tagged
+EXPECTED-FAIL, never rewritten."*
 
 ## What this generator is
 
@@ -19,11 +25,11 @@ one generic "generate all test cases" prompt fails, and why six narrow, ordered,
 prompts don't** — a decision validated empirically three times over (`docs/api1-users-me/`,
 `docs/api2-apply-coupon/`, `docs/api3-admin-order-status/`), not assumed up front.
 
-## Architecture — what the diagram should show
+## Architecture — what the diagram depicts
 
-Six boxes in a left-to-right pipeline, each stage's output feeding the next (not six independent
-calls to the same prompt), followed by two human-only boxes, then an emission/execution box, with
-one feedback arrow back into the CI gate:
+Six boxes in a pipeline, each stage's output feeding the next (not six independent calls to the
+same prompt), followed by two human-only boxes, then an emission/execution box, with one feedback
+arrow back into the CI gate. Same structure as the hand-drawn diagram above, spelled out in text:
 
 ```
 [API Specification]

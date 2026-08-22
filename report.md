@@ -102,9 +102,8 @@ prompt carried (assert `UNDETERMINED` rather than guess; never infer conventiona
 a deliberately-defective SUT) and the human-boundary line between generation and audit/extension
 that must not be collapsed.
 
-**On the diagram:** `evidence/generator-diagram.png` is hand-drawn by the student, not
-AI-generated, per Requirement §7/§11 — `docs/generator-design.md`'s Architecture section describes
-exactly what it depicts.
+**On the diagram:** `evidence/generator-diagram.jpg` is hand-drawn by the student, not AI-generated,
+per Requirement §7/§11 — embedded at the top of `docs/generator-design.md`.
 
 ## 7. AI Audit and Critique
 

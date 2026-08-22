@@ -1,3 +1,5 @@
+f4caecf 2026-08-22 10:28:15 docs: add a labeled AI-drawn Mermaid reference sketch (not the submitted diagram)
+22627be 2026-08-21 16:41:42 docs: final report and submission bundle
 03488da 2026-08-21 10:49:23 docs: AI test-generator design
 fe79800 2026-08-21 10:02:20 fix(evidence): retake bug screenshots so each shows its own title
 9b64f7d 2026-08-19 16:30:55 docs: bug reports and GitHub issues
